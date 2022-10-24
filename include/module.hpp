@@ -7,11 +7,15 @@
 
 struct Module {
     std::string name;
+    sol::state state;
 
     Module(std::string name) : name(name) {}
 };
 
 struct ModuleLoader {
+    // some notes on that - the sol object sol::state belongs to the Module, but the pointer that is actually
+    // at the heart od sol::state does not (that's the lua_State*). So, when destroying this variable,
+    // the lua_State*s are destroyed by the destructor of the Module
     std::unordered_map<lua_State*, Module> m_loaded_modules;
     std::function<void(sol::string_view)> m_logger_fn;
 
@@ -80,12 +84,14 @@ struct ModuleLoader {
                 std::cout << "Module " << name << " had an error when running - unregistering\n";
                 m_loaded_modules.erase(lua.lua_state());
             }
+
+            insert_it->second.state = std::move(lua); // fucky ownership
         }
         std::cout << " === MODULE LOADING END === \n";
     }
 
     void InjectSymbols(sol::state& lua) {
-        lua.set_function("log", &ModuleLoader::DefaultLogger, *this);
+        lua.set_function("log", &ModuleLoader::DefaultLogger, this);
     }
 };
 
