@@ -75,7 +75,15 @@ void raylib_simple_example() {
 int main () {
     try {
         ModuleLoader ml;
-        ml.LoadModules(ml.ListCandidateModules());
+        auto module_load_candidates = ml.ListCandidateModules();
+        // for the time this just disables nothing, but change the lambda to start banning stuff
+        module_load_candidates.erase(
+            std::remove_if(module_load_candidates.begin(), module_load_candidates.end(), 
+                [](const std::filesystem::path&){return false;}
+            ),
+            module_load_candidates.end()
+        );
+        ml.LoadModules(module_load_candidates);
 
         lua_simple_example();
         raylib_simple_example();
