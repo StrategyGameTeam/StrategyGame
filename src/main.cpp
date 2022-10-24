@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include <sol/sol.hpp>
+#include "module.hpp"
 
 void lua_simple_example() {
     constexpr auto script = 
@@ -73,6 +74,9 @@ void raylib_simple_example() {
 
 int main () {
     try {
+        ModuleLoader ml;
+        ml.LoadModules(ml.ListCandidateModules());
+
         lua_simple_example();
         raylib_simple_example();
     } catch (std::exception& e) {
