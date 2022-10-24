@@ -4,27 +4,6 @@
 #include <sol/sol.hpp>
 #include "module.hpp"
 
-void lua_simple_example() {
-    constexpr auto script = 
-        "function fact (n)\n"
-        "   if n == 0 then\n"
-        "       return 1\n"
-        "   else\n"
-        "       return n * fact(n-1)\n"
-        "   end\n"
-        "end\n"
-        "\n"
-        "for i=1,10 do\n"
-        "   print(fact(i))\n"
-        "end"
-    ;
-
-    sol::state lua;
-    lua.open_libraries(sol::lib::base, sol::lib::package);
-    lua.script(script);
-    std::cout << '\n';
-}
-
 void raylib_simple_example() {
     InitWindow(640, 480, "Strategy game");
     SetTargetFPS(60);
@@ -85,7 +64,6 @@ int main () {
         );
         ml.LoadModules(module_load_candidates);
 
-        lua_simple_example();
         raylib_simple_example();
     } catch (std::exception& e) {
         std::cerr << e.what() << '\n';
