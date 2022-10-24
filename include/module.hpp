@@ -46,6 +46,7 @@ struct ModuleLoader {
     auto LoadModules(const std::vector<std::filesystem::path>& module_paths) {
         std::cout << " === MODULE LOADING START === \n";
         for(const auto& modpath : module_paths) {
+            std::cout << "Starting to load " << modpath.string() << '\n';
             // find the entry point
             const auto [entry_point, name] = ([&] () -> std::pair<std::optional<std::filesystem::path>, std::string> {
                 if (std::filesystem::is_regular_file(modpath) && modpath.extension() == ".lua") {
