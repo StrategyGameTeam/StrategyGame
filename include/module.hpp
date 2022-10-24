@@ -78,8 +78,12 @@ struct ModuleLoader {
             }
 
             // load everything
-            lua.open_libraries(sol::lib::base, sol::lib::jit, sol::lib::string);
+            lua.open_libraries(sol::lib::base, sol::lib::jit, sol::lib::string, sol::lib::package);
             InjectSymbols(lua);
+            if (entry_point != modpath) {
+                std::string package_path = lua["package"]["path"];
+                lua["package"]["path"] = package_path + (!package_path.empty() ? ";" : "") + modpath.string() + "/?.lua";
+            }
             auto res = lua.script_file(entry_point.value().string());
             if (!res.valid()) {
                 std::cout << "Module " << name << " had an error when running - unregistering\n";
