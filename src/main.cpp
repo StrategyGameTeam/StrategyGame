@@ -53,8 +53,13 @@ void raylib_simple_example() {
 
 int main () {
     try {
+        const auto cwd = std::filesystem::current_path();
         ModuleLoader ml;
-        auto module_load_candidates = ml.ListCandidateModules();
+        
+        auto modulepath = cwd;
+        modulepath.append("resources/modules");
+
+        auto module_load_candidates = ml.ListCandidateModules(modulepath);
         // for the time this just disables nothing, but change the lambda to start banning stuff
         module_load_candidates.erase(
             std::remove_if(module_load_candidates.begin(), module_load_candidates.end(), 

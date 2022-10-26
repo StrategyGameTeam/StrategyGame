@@ -20,20 +20,13 @@ struct ModuleLoader {
     std::function<void(sol::string_view)> m_logger_fn;
 
     void DefaultLogger(sol::this_state ts, sol::string_view sv) {
-        const auto name = ([&]{
-            if (auto res = m_loaded_modules.find(ts.lua_state()); res != m_loaded_modules.end()) {
-                return res->second.name;
-            } else {
-                return std::string("???");
-            } 
-        })();
+        const auto res = m_loaded_modules.find(ts.lua_state());
+        const auto name = res != m_loaded_modules.end() ? res->second.name : "???";
         std::cout << "LUA [" << name << "]: " << sv << '\n';
     }
 
-    auto ListCandidateModules () {
-        auto cwd = std::filesystem::current_path();
-        cwd.append("resources/modules");
-        auto iter = std::filesystem::directory_iterator(cwd);
+    auto ListCandidateModules (std::filesystem::path load_path) {
+        auto iter = std::filesystem::directory_iterator(std::filesystem::path(load_path));
         std::vector<std::filesystem::path> paths;
         for(const auto &file : iter) {
             if (file.is_directory() || (file.is_regular_file() && file.path().extension() == ".lua")) {
@@ -56,12 +49,9 @@ struct ModuleLoader {
                     entrypath.append("mod.lua");
                     if (std::filesystem::exists(entrypath) && std::filesystem::is_regular_file(entrypath)) {
                         return {entrypath, modpath.stem().string()};
-                    } else {
-                        return {{}, modpath.stem().string()};
                     }
-                } else {
-                    return {{}, modpath.stem().string()};
-                };
+                }
+                return {{}, modpath.stem().string()};
             })();
 
             if (!entry_point.has_value()) {
