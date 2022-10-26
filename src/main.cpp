@@ -2,27 +2,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include <sol/sol.hpp>
-
-void lua_simple_example() {
-    constexpr auto script = 
-        "function fact (n)\n"
-        "   if n == 0 then\n"
-        "       return 1\n"
-        "   else\n"
-        "       return n * fact(n-1)\n"
-        "   end\n"
-        "end\n"
-        "\n"
-        "for i=1,10 do\n"
-        "   print(fact(i))\n"
-        "end"
-    ;
-
-    sol::state lua;
-    lua.open_libraries(sol::lib::base, sol::lib::package);
-    lua.script(script);
-    std::cout << '\n';
-}
+#include "module.hpp"
 
 void raylib_simple_example() {
     InitWindow(640, 480, "Strategy game");
@@ -73,7 +53,22 @@ void raylib_simple_example() {
 
 int main () {
     try {
-        lua_simple_example();
+        const auto cwd = std::filesystem::current_path();
+        ModuleLoader ml;
+        
+        auto modulepath = cwd;
+        modulepath.append("resources/modules");
+
+        auto module_load_candidates = ml.ListCandidateModules(modulepath);
+        // for the time this just disables nothing, but change the lambda to start banning stuff
+        module_load_candidates.erase(
+            std::remove_if(module_load_candidates.begin(), module_load_candidates.end(), 
+                [](const std::filesystem::path&){return false;}
+            ),
+            module_load_candidates.end()
+        );
+        ml.LoadModules(module_load_candidates);
+
         raylib_simple_example();
     } catch (std::exception& e) {
         std::cerr << e.what() << '\n';
