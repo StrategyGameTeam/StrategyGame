@@ -3,6 +3,7 @@
 #include "raymath.h"
 #include <sol/sol.hpp>
 #include "module.hpp"
+#include "hex.hpp"
 
 void raylib_simple_example() {
     InitWindow(640, 480, "Strategy game");
