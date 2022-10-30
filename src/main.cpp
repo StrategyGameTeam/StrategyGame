@@ -24,28 +24,48 @@ void raylib_simple_example() {
         LoadModel("resources/hexes/stone.obj")
     }};
 
+    const auto model_bb = GetModelBoundingBox(hex_models.at(0));
+    const auto model_size = Vector3Subtract(model_bb.max, model_bb.min);
+    const float scale = 2.0f / std::max({model_size.x, model_size.y, model_size.z});
+
     SetCameraMode(camera, CAMERA_FREE);
-    SetCameraPanControl(KEY_A);
+
+    CylinderHexWorld<char> world (8, 8, false, true, 0);
 
     while(!WindowShouldClose()) {
         UpdateCamera(&camera);
 
+        const auto mouse_ray = GetMouseRay(GetMousePosition(), camera);
+        const auto moveunit = -mouse_ray.position.y / mouse_ray.direction.y;
+        const auto mouse_ground_intersection_point = Vector3Add(mouse_ray.position, Vector3Scale(mouse_ray.direction, moveunit));
+
+        const auto hovered_coords = HexCoords::from_world_unscaled(mouse_ground_intersection_point.x, mouse_ground_intersection_point.z);
+
+
         BeginDrawing();
             ClearBackground(WHITE);
             BeginMode3D(camera);
+                DrawGrid(10, 1.0f);
+
                 // https://www.redblobgames.com/grids/hexagons/
-                for(int x = 0; x < 25; x += 1) {
-                    for(int y = 0; y < 25; y += 1) {
-                        float right = x;
-                        float top = y * sqrtf(3.0f) / 1.5 - (x%2==0) * sqrtf(3.0f)/2.0/1.5;
-
-                        Vector3 pos = Vector3{right, 0, -top};
-
-                        DrawModelEx(hex_models.at((x*14 + y*4)%5), pos, Vector3{0, 1, 0}, 30.0, Vector3{1, 1, 1}, WHITE);
-                        // DrawModelWiresEx(hex_model, pos, Vector3{0, 1, 0}, 30.0, Vector3{1, 1, 1}, BLACK);
+                for(int x = 0; x < world.width; x += 1) {
+                    for(int y = 0; y < world.height; y += 1) {
+                        const auto coords = HexCoords::from_axial(x, y);
+                        if (const auto hx = world.at(coords)) {
+                            auto tint = WHITE;
+                            if (coords == hovered_coords) {
+                                tint = RED;
+                            }
+                            const auto [x, y] = coords.to_world_unscaled();
+                            assert(hx.value() <= 4);
+                            DrawModelEx(hex_models.at(hx.value()), Vector3{x, 0, y}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
+                        }
                     }
                 }
+                // DrawPlane(Vector3Zero(), Vector2{10, 10}, BLUE);
             EndMode3D();
+
+            DrawFPS(10, 10);
         EndDrawing();
     }
 
