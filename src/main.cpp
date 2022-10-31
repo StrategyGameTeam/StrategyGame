@@ -1,4 +1,5 @@
 #include <iostream>
+#define RAYMATH_IMPLEMENTATION
 #include "raylib.h"
 #include "raymath.h"
 #include <sol/sol.hpp>
@@ -21,10 +22,8 @@ void raylib_simple_example() {
     camera.projection = CameraProjection::CAMERA_PERSPECTIVE;
     camera.up = Vector3{0, 1, 0};
     camera.target = Vector3{0, 0, 0};
-    camera.position = Vector3{0, 10, 10};
+    camera.position = Vector3{0, 10.0f, 5.0f};
     
-    SetCameraMode(camera, CAMERA_CUSTOM);
-
     std::array<Model, 5> hex_models = {{
         LoadModel("resources/hexes/grass_forest.obj"),
         LoadModel("resources/hexes/grass_hill.obj"),
@@ -41,7 +40,7 @@ void raylib_simple_example() {
     // for draging the map around
     Vector3 mouse_grab_point;
 
-    CylinderHexWorld<char> world (8, 8, 0);
+    CylinderHexWorld<char> world (15, 10, (char)3);
 
     while(!WindowShouldClose()) {
         // for some reason, dragging around is unstable
@@ -67,21 +66,30 @@ void raylib_simple_example() {
         const auto bottom_left = intersect_with_ground_plane(GetMouseRay(Vector2{0, (float)GetScreenHeight()}, camera), 0.0f);
         const auto bottom_right = intersect_with_ground_plane(GetMouseRay({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera), 0.0f);
 
+        // puts("A");
         const auto to_render = world.all_within_unscaled_quad(
-            std::min(top_left.x, bottom_left.x),
-            std::min(top_left.z, top_right.z),
-            std::max(std::abs(top_left.x - top_right.x), std::abs(bottom_left.x - bottom_right.x)),
-            std::max(std::abs(top_left.z - bottom_left.z), std::abs(top_right.z - bottom_right.z))
+            {top_left.x, top_left.z},    
+            {top_right.x, top_right.z},    
+            {bottom_left.x, bottom_left.z},    
+            {bottom_right.x, bottom_right.z}    
         );
+        // puts("B");
+
+        // const std::array<HexCoords, 4> to_render = {
+        //     HexCoords::from_world_unscaled(0, 0),
+        //     HexCoords::from_world_unscaled(4, 0),
+        //     HexCoords::from_world_unscaled(0, 4),
+        //     HexCoords::from_world_unscaled(4, 4)
+        // };
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-            if (auto hx = world.at_abnormal(hovered_coords)) {
+            if (auto hx = world.at_ref_abnormal(hovered_coords)) {
                 hx.value().get() = (hx.value().get() + 1) % 5;
             }
         }
 
         BeginDrawing();
-            puts("BeginDrawing()");
+            // puts("BeginDrawing()");
             ClearBackground(WHITE);
             BeginMode3D(camera);
                 DrawSphere(top_left, 3.0, RED);
@@ -90,19 +98,21 @@ void raylib_simple_example() {
                 DrawSphere(bottom_left, 3.0, YELLOW);
                 DrawGrid(10, 1.0f);
                 for(const auto coords : to_render) {
-                    printf("%i %i\n", coords.q, coords.r);
-                    auto& hx = world.at_normalized(coords);
+                    // printf("%i %i\n", coords.q, coords.r);
+                    auto hx = world.at_ref_abnormal(coords);
+                    if (!hx.has_value()) continue;
                     auto tint = WHITE;
                     if (coords == hovered_coords) {
                         tint = BLUE;
                     }
                     const auto [tx, ty] = coords.to_world_unscaled();
                     assert(hx <= 4);
-                    DrawModelEx(hex_models.at(hx), Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
+                    DrawModelEx(hex_models.at(hx.value().get()), Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
                 }
             EndMode3D();
             DrawFPS(10, 10);
-            puts("EndDrawing()");
+            DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
+            // puts("EndDrawing()");
         EndDrawing();
     }
     CloseWindow();

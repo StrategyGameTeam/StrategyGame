@@ -4,6 +4,7 @@
 #include <concepts>
 #include <utility>
 #include <optional>
+#include <raymath.h>
 
 /*
 Some notes about what the code means.
@@ -78,14 +79,17 @@ template <typename HexT>
 struct CylinderHexWorld {
     int width;
     int height;
+    HexT default_hex;
     std::vector<HexT> data;
+    std::array<Vector2, 4> looked_at;
+
 
     CylinderHexWorld (int width, int height) 
     requires std::default_initializable<HexT> 
         : CylinderHexWorld(width, height, HexT()) {};
 
     CylinderHexWorld (int width, int height, HexT default_hex)
-        : width(width), height(height)
+        : width(width), height(height), default_hex(default_hex)
     {
         data.resize((width+1)*(height+1), default_hex);
     }
@@ -108,7 +112,11 @@ struct CylinderHexWorld {
         return direct_row*width + direct_column;
     }
 
-    std::optional<std::reference_wrapper<HexT>> at_abnormal(const HexCoords hc) {
+    HexT at(const HexCoords hc) {
+        return at_ref_abnormal(hc).value_or(default_hex);
+    }
+
+    std::optional<std::reference_wrapper<HexT>> at_ref_abnormal(const HexCoords hc) {
         if (hc.r < 0 || hc.r >= height) {
             return {};
         }
@@ -117,53 +125,139 @@ struct CylinderHexWorld {
         return data.at(compute_index(wrapped));
     }
 
-    HexT& at_normalized(const HexCoords hc) {
+    HexT& at_ref_normalized(const HexCoords hc) {
         return data.at(compute_index(normalized_coords(hc)));
     }
 
-    // This ignores perspective, and as such is kinda broken. Have to use it carefully
-    std::vector<HexCoords> all_within_unscaled_quad (float x, float y, float width, float height) 
+    std::vector<HexCoords> all_within_unscaled_quad 
+    (Vector2 top_left, Vector2 top_right, Vector2 bottom_left, Vector2 bottom_right) 
     {
-        auto top_left_hx = HexCoords::from_world_unscaled(x-2, y-2);
-        auto top_right_hx = HexCoords::from_world_unscaled(x+height+2, y-2);
-        auto bottom_left_hx = HexCoords::from_world_unscaled(x-2, y+width+2);
-        auto bottom_right_hx = HexCoords::from_world_unscaled(x+height+2, y+width+2);
+        // some notes on what is accomplished here
+        // because we need to run this every frame, this has to be fast
+        // since the shape of the visibility quad can be complex (but should not be concave)
+        // we transform the space it's laying on, so that is becomes almost a square
+        // then, we use that same transformation to morph a grid of triangles,
+        // which contains all the points of a hexagon (6 outer and 1 center)
+        // then we do a simple scan through that grid, that is just limited by a square,
+        // which is simple to test if we're within
 
-        // limit the lines only to hexes that exist vertically
-        normalize_height(top_left_hx);
-        normalize_height(bottom_left_hx);
-        normalize_height(top_right_hx);
-        normalize_height(bottom_right_hx);
+        const auto axial_delta = Vector2Subtract(bottom_right, top_left);
+        const auto to_vec =  [](std::pair<float, float> p) {
+            return Vector2{p.first, p.second};
+        };
+
+        // raylib gives us Mat4 maths, so let's just use it
+        // note - these matricies are ordered column major, so it's written in code as the transposition
+        // of what we are used from maths
         
-        std::vector<HexCoords> scan_line;
-        // make a line from top_left_hx to bottom_left_hx
-        const auto samples = 1 + top_left_hx.distance(bottom_left_hx);
-        scan_line.reserve(samples);
-        const auto inv = 1.0f / samples;
-        const auto [tlx, tly] = top_left_hx.to_world_unscaled();
-        const auto [blx, bly] = bottom_left_hx.to_world_unscaled();
-        const auto dx = blx - tlx;
-        const auto dy = bly - tly;
-        for(int i = 0; i < samples; i++) {
-            const auto x = tlx + dx*inv*i;
-            const auto y = tly + dy*inv*i;
-            scan_line.push_back(HexCoords::from_world_unscaled(x, y));
-        }
+        // the matrix that makes, so that
+        // top left has to become (0, 0)
+        // bottom right has to become (1, 1)
+        Matrix imtx = MatrixMultiply(MatrixScale(axial_delta.x, axial_delta.y, 1), MatrixTranslate(top_left.x, top_left.y, 0));
+        Matrix mtx = MatrixInvert(imtx);
 
-        // sweep that line from left to right
-        std::vector<HexCoords> result;
-        const auto top_distance = top_left_hx.distance(top_right_hx);
-        const auto bottom_distance = bottom_left_hx.distance(bottom_right_hx);
-        const auto max_distance = std::max(top_distance, bottom_distance);
-        result.reserve(scan_line.size() * max_distance);
-        for(int i = 0; i < max_distance; i++) {
-            for(const auto hex : scan_line) {
-                result.push_back(hex + hexR(i));
+        // for doing transformation on directions rather than points
+        const auto vector2_transform_direction = [](Vector2 v, Matrix mat) -> Vector2 {
+            return Vector2{
+                mat.m0*v.x + mat.m4*v.y,
+                mat.m1*v.x + mat.m5*v.y
+            }; 
+        };
+
+        const auto tl_l = Vector2Transform(top_left, mtx);
+        const auto tr_l = Vector2Transform(top_right, mtx);
+        const auto bl_l = Vector2Transform(bottom_left, mtx);
+        const auto br_l = Vector2Transform(bottom_right, mtx);
+        // todo: scale this shit so it fit's into the 1x1@0,0 box
+        const auto hex_size = vector2_transform_direction({1.0f, 1.0f}, mtx);
+
+        const auto from_x = -hex_size.x;
+        const auto to_x = 1+hex_size.x;
+        const auto from_y = -hex_size.y;
+        const auto to_y = 1+hex_size.y;
+
+        const auto starting_point = ([=]{
+            const auto middleish = Vector2{0.5f, 0.5f};
+            const auto world_mid = Vector2Transform(middleish, imtx);
+            const auto snapped = HexCoords::from_world_unscaled(world_mid.x, world_mid.y);
+            const auto snapped_world = to_vec(snapped.to_world_unscaled());
+            return Vector2Transform(snapped_world, mtx);
+        })();
+
+        const auto hex_base_r = Vector2{1.0f, 0.0f};
+        const auto hex_base_rd = Vector2{0.5f, 0.75f};
+
+        // these are directions, and should not be offset
+        const auto hex_local_base_r = vector2_transform_direction(hex_base_r, mtx);
+        const auto hex_local_base_rd = vector2_transform_direction(hex_base_rd, mtx);
+
+        printf("R %f %f \t\tRD %f %f\n", hex_local_base_r.x, hex_local_base_r.y, hex_local_base_rd.x, hex_local_base_rd.y);
+
+        const auto within_square = [=](Vector2 p){
+            return p.x > from_x && p.x < to_x && p.y > from_y && p.y < to_y;
+        };
+
+        constexpr int hard_limit = 1000; // how many interations to do each trace step before giving up
+        
+        std::vector<Vector2> axis_line;
+        axis_line.push_back(starting_point);
+
+        // line towards right
+        Vector2 march = starting_point;
+        for(int i = 0; i < hard_limit; i++) {
+            march = Vector2Add(march, hex_local_base_r);
+            if (within_square(march)) {
+                axis_line.push_back(march);
+            } else {
+                break;
             }
         }
 
-        // if we have very fucky angles, there can be overlaps. As some say - too bad
-        return result;
+        // line towards left
+        march = starting_point;
+        for(int i = 0; i < hard_limit; i++) {
+            march = Vector2Subtract(march, hex_local_base_r);
+            if (within_square(march)) {
+                axis_line.push_back(march);
+            } else {
+                break;
+            }
+        }
+
+        std::vector<HexCoords> results;
+        for(const auto column : axis_line) {
+            // line to down-right
+            Vector2 march = column;
+            for(int i = 0; i < hard_limit; i++) {
+                march = Vector2Add(march, hex_local_base_rd);
+                if (within_square(march)) {
+                    Vector2 orig_space = Vector2Transform(march, imtx);
+                    results.push_back(HexCoords::from_world_unscaled(orig_space.x, orig_space.y));
+                } else {
+                    break;
+                }
+            } 
+            // line to top-left
+            march = column;
+            for(int i = 0; i < hard_limit; i++) {
+                march = Vector2Subtract(march, hex_local_base_rd);
+                if (within_square(march)) {
+                    Vector2 orig_space = Vector2Transform(march, imtx);
+                    results.push_back(HexCoords::from_world_unscaled(orig_space.x, orig_space.y));
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // for debugging, but might be usefull somewhere
+        looked_at[0] = tl_l;
+        looked_at[1] = tr_l;
+        looked_at[2] = br_l;
+        looked_at[3] = bl_l;
+
+        // printf("TL %f %f\t\tTR %f %f\t\tBL %f %f\t\tBR %f %f\n", tl_l.x, tl_l.y, tr_l.x, tr_l.y, bl_l.x, bl_l.y, br_l.x, br_l.y);
+        return results;
     }
 };
 
