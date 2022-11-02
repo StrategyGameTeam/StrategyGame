@@ -83,3 +83,18 @@ HexCoords HexCoords::from_world_unscaled(float x, float y) {
     const auto comp_s = -comp_q-comp_r;  
     return rounded_to_hex(comp_q, comp_r, comp_s);
 }
+
+std::vector<HexCoords> HexCoords::make_line(const HexCoords from, const HexCoords to) {
+    const float steps = from.distance(to) + 1;
+    const auto isteps = 1.0f/steps;
+    const auto [sx, sy] = from.to_world_unscaled();
+    const auto [ex, ey] = to.to_world_unscaled();
+    const auto dx = ex-sx;
+    const auto dy = ey-sy;
+    std::vector<HexCoords> result;
+    result.reserve(steps);
+    for(int i = 0; i < steps; i++) {
+        result.push_back(HexCoords::from_world_unscaled(sx + dx*isteps*i, sy+dy*isteps*i));
+    }
+    return result;
+}
