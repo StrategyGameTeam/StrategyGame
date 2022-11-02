@@ -131,66 +131,6 @@ struct CylinderHexWorld {
     std::vector<HexCoords> all_within_unscaled_quad 
     (Vector2 top_left, Vector2 top_right, Vector2 bottom_left, Vector2 bottom_right) 
     {
-        // this bellow is some code that works, but is not used at the moment.
-        // it is not because it is not needed, but because the actual code that does things bellow
-        // does them wrong, and this is what is needed to fix it
-        // but it does them wrong in such a way, that it works, as long as the camera cannot change angles or rotate
-        // there are issues with floating point precision, so the solution in that lambda is problematic at least
-        // still, proper that will sadly be needed
-        [&]{
-            const auto axial_delta = Vector2Subtract(bottom_right, top_left);
-            const auto to_vec =  [](std::pair<float, float> p) {
-                return Vector2{p.first, p.second};
-            };
-
-            // raylib gives us Mat4 maths, so let's just use it
-            
-            // the matrix that makes, so that
-            // top left has to become (0, 0)
-            // bottom right has to become (1, 1)
-            Matrix imtx = MatrixMultiply(MatrixScale(axial_delta.x, axial_delta.y, 1), MatrixTranslate(top_left.x, top_left.y, 0));
-            Matrix mtx = MatrixInvert(imtx);
-
-            // for doing transformation on directions rather than points
-            const auto vector2_transform_direction = [](Vector2 v, Matrix mat) -> Vector2 {
-                return Vector2{
-                    mat.m0*v.x + mat.m4*v.y,
-                    mat.m1*v.x + mat.m5*v.y
-                }; 
-            };
-
-            auto tr_l = Vector2Transform(top_right, mtx);
-            auto tl_l = Vector2Transform(top_left, mtx);
-            Matrix final_scaling = MatrixScale(1.0f/(tr_l.x - tl_l.x), 1.0f, 1.0f);
-            mtx = MatrixMultiply(mtx, final_scaling);
-            imtx = MatrixInvert(mtx);
-
-            tr_l = Vector2Transform(top_right, mtx);
-            tl_l = Vector2Transform(top_left, mtx);
-            const auto bl_l = Vector2Transform(bottom_left, mtx);
-            const auto br_l = Vector2Transform(bottom_right, mtx);
-
-            const auto hex_size = vector2_transform_direction({1.0f, 1.0f}, mtx);
-
-            const auto from_x = -hex_size.x;
-            const auto to_x = 1+hex_size.x;
-            const auto from_y = -hex_size.y;
-            const auto to_y = 1+hex_size.y;
-
-            const auto hex_base_r = Vector2{1.0f, 0.0f};
-            const auto hex_base_rd = Vector2{0.5f, 0.75f};
-
-            // these are directions, and should not be offset
-            const auto hex_local_base_r = vector2_transform_direction(hex_base_r, mtx);
-            const auto hex_local_base_rd = vector2_transform_direction(hex_base_rd, mtx);
-
-            const auto within_square = [=](Vector2 p){
-                return p.x > from_x && p.x < to_x && p.y > from_y && p.y < to_y;
-            };
-
-            constexpr int hard_limit = 1000; // how many interations to do each trace step before giving up
-        };
-
         std::vector<HexCoords> line = ([&]{
             std::vector<HexCoords> result;
             // start from the top right
@@ -226,15 +166,4 @@ struct CylinderHexWorld {
 
         return result;
     }
-};
-
-
-template <typename T>
-concept HexPathfindingGrid = requires(T grid, HexCoords hex, EdgeCoords edge) {
-    { grid.canWalkOver(hex) } -> std::convertible_to<bool>;
-    { grid.canSwimOver(hex) } -> std::convertible_to<bool>;
-    { grid.canFlyOver(hex) } -> std::convertible_to<bool>;
-    { grid.walkCost(edge) } -> std::integral;
-    { grid.swimCost(edge) } -> std::integral;
-    { grid.flyCost(edge) } -> std::integral;
 };
