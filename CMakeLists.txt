@@ -60,6 +60,7 @@ FetchContent_MakeAvailable(sol2)
 add_executable(
     stratgametest
         src/main.cpp
+        src/hex.cpp
 )
 
 target_include_directories(
