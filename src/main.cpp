@@ -86,8 +86,10 @@ void raylib_simple_example() {
         };
 
         BeginDrawing();
+        {
             ClearBackground(WHITE);
-            BeginMode3D(camera);
+            BeginMode3D(camera); 
+            {
                 DrawGrid(10, 1.0f);
                 for(const auto coords : to_render) {
                     auto hx = world.at(coords);
@@ -99,9 +101,11 @@ void raylib_simple_example() {
                     assert(hx <= 4);
                     DrawModelEx(hex_models.at(hx), Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
                 }
+            }
             EndMode3D();
             DrawFPS(10, 10);
             DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
+        }
         EndDrawing();
     }
     CloseWindow();

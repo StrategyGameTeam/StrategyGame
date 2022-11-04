@@ -128,9 +128,9 @@ struct CylinderHexWorld {
         return data.at(compute_index(normalized_coords(hc)));
     }
 
-    std::vector<HexCoords> all_within_unscaled_quad 
-    (Vector2 top_left, Vector2 top_right, Vector2 bottom_left, Vector2 bottom_right) 
-    {
+    std::vector<HexCoords> all_within_unscaled_quad (
+        Vector2 top_left, Vector2 top_right, Vector2 bottom_left, Vector2 bottom_right
+    ) {
         std::vector<HexCoords> line = ([&]{
             std::vector<HexCoords> result;
             // start from the top right
