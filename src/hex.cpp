@@ -1,11 +1,11 @@
 #include "hex.hpp"
 
-HexCoords operator "" _LU (size_t x) { int v = x; return HexCoords{0, -v, +v}; };
-HexCoords operator "" _RU (size_t x) { int v = x; return HexCoords{+v, -v, 0}; };
-HexCoords operator "" _R  (size_t x) { int v = x; return HexCoords{+v, 0, -v}; };
-HexCoords operator "" _RD (size_t x) { int v = x; return HexCoords{0, +v, -v}; };
-HexCoords operator "" _LD (size_t x) { int v = x; return HexCoords{-v, +v, 0}; };
-HexCoords operator "" _L  (size_t x) { int v = x; return HexCoords{-v, 0, +v}; };
+HexCoords operator "" _LU (unsigned long long x) { int v = x; return HexCoords{0, -v, +v}; };
+HexCoords operator "" _RU (unsigned long long x) { int v = x; return HexCoords{+v, -v, 0}; };
+HexCoords operator "" _R  (unsigned long long x) { int v = x; return HexCoords{+v, 0, -v}; };
+HexCoords operator "" _RD (unsigned long long x) { int v = x; return HexCoords{0, +v, -v}; };
+HexCoords operator "" _LD (unsigned long long x) { int v = x; return HexCoords{-v, +v, 0}; };
+HexCoords operator "" _L  (unsigned long long x) { int v = x; return HexCoords{-v, 0, +v}; };
 
 HexCoords hexLU (int v) { return HexCoords{0, -v, +v}; };
 HexCoords hexRU (int v) { return HexCoords{+v, -v, 0}; };
