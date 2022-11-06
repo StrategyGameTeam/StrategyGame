@@ -132,7 +132,7 @@ int main () {
     try {
         GameState gs;
         const auto cwd = std::filesystem::current_path();
-        ModuleLoader<InputMgr> ml;
+        ModuleLoader ml;
         
         auto modulepath = cwd;
         modulepath.append("resources/modules");

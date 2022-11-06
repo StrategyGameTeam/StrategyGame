@@ -21,7 +21,6 @@ concept ModuleExtention = requires(T ext, sol::state ss) {
     { ext.InjectSymbols(ss) };
 };
 
-template <ModuleExtention ...ExtentionTS>
 struct ModuleLoader {
     // some notes on that - the sol object sol::state belongs to the Module, but the pointer that is actually
     // at the heart od sol::state does not (that's the lua_State*). So, when destroying this variable,
@@ -53,6 +52,7 @@ struct ModuleLoader {
         LoadLuaTRec(lua, ms...);
     }
 
+    template <ModuleExtention ...ExtentionTS>
     auto LoadModules(const std::vector<std::filesystem::path>& module_paths, ExtentionTS&... extentions) {
         std::cout << " === MODULE LOADING START === \n";
         for(const auto& modpath : module_paths) {
