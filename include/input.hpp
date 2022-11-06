@@ -32,5 +32,5 @@ struct InputMgr : ModuleSymbol {
 
     void InjectSymbols(sol::state &lua) override;
 
-    void RedefineKeyShortcut(sol::this_state ts, sol::string_view sv, KeyboardKey key);
+    void RedefineKeyShortcut(sol::this_state ts, sol::string_view sv, KeyboardKey key, std::array<KeyboardKey, MAX_MODIFIERS> modifiers);
 };
