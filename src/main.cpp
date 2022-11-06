@@ -20,7 +20,7 @@ Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
     return intersection_point;
 }
 
-void raylib_simple_example(GameState gs) {
+void raylib_simple_example(GameState &gs) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(640, 480, "Strategy game");
     SetTargetFPS(60);
