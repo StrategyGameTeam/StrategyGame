@@ -149,8 +149,7 @@ void InputMgr::RedefineKeyShortcut(sol::this_state ts, sol::string_view sv, Keyb
         throw std::invalid_argument("Unsupported key: 1");
     }
 
-    std::string name = std::string(sv.begin(), sv.end());
-    shortcuts.insert_or_assign(name, ActionShortcut{key, modifiers});
+    shortcuts.insert_or_assign(std::string(sv), ActionShortcut{key, modifiers});
 }
 
 bool ActionShortcut::shouldFire(int clickedKey) {
