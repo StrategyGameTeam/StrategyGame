@@ -6,6 +6,7 @@
 #include <optional>
 #include <raymath.h>
 #include <random>
+#include <sol/sol.hpp>
 
 /*
 Some notes about what the code means.
@@ -97,10 +98,10 @@ struct CylinderHexWorld {
         sol::table res = f(mt(), width, height);
         const auto tsize = res.size();
         for(size_t x = 0; x < tsize; x++) {
-            sol::table intable = res[i];
+            sol::table intable = res[std::to_string(x)];            
             const auto isize = intable.size();
             for(size_t y = 0; y < isize; y++) {
-                int value = intable[y];
+                int value = intable[std::to_string(y)];
                 at_ref_normalized(HexCoords::from_axial(x, y)) = value;
             }
         }
