@@ -8,24 +8,14 @@ void InputMgr::registerAction(const Action &action, const ActionShortcut &defaul
     }) != actions.end()) {
         throw std::invalid_argument("Redefinition of action");
     }
-    if (!shortcuts.contains(action.name)) {
-        auto [insert_it, insert_ok] = shortcuts.emplace(action.name, defaultShortcut);
-        if (!insert_ok) {
-            std::cout
-                    << "Could not insert shortcut - this should not happen, and should be reported to the developers\n";
-            return;
-        }
-    }
+    shortcuts.try_emplace(action.name, defaultShortcut);
     actions.push_back(action);
 }
 
 void InputMgr::processKeyPress(int key) {
     for (const auto &action: actions) {
-        if (!shortcuts.contains(action.name)) {
-            continue;
-        }
-        auto shortcut = shortcuts[action.name];
-        if (shortcut.shouldFire(key)) {
+        auto shortcut = shortcuts.find(action.name);
+        if (shortcut != shortcuts.end() && shortcut->second.shouldFire(key)) {
             action.callback();
         }
     }
@@ -39,7 +29,7 @@ void InputMgr::handleKeyboard() {
 }
 
 void InputMgr::InjectSymbols(sol::state &lua) {
-    lua.set_function("redefine_action_shortcut", &InputMgr::RedefineKeyShortcut, this);
+    lua.set_function("RedefineActionShortcut", &InputMgr::RedefineKeyShortcut, this);
     lua["KEY_NULL"] = 0;
     lua["KEY_APOSTROPHE"] = 39;
     lua["KEY_COMMA"] = 44;
@@ -158,12 +148,8 @@ void InputMgr::RedefineKeyShortcut(sol::this_state ts, sol::string_view sv, Keyb
         std::cout << "Could not redefine shortcut - Unsupported key\n";
         throw std::invalid_argument("Unsupported key: 1");
     }
-    auto [insert_it, insert_ok] = shortcuts.emplace(sv, ActionShortcut{key, modifiers});
-    if (!insert_ok) {
-        std::cout << "Could not redefine shortcut - this should not happen, and should be reported to the developers\n";
-    } else {
-        std::cout << "Redefined \"" << sv << "\"" << std::endl;
-    }
+    std::string name = std::string(sv.begin(), sv.end());
+    shortcuts.insert_or_assign(name, ActionShortcut{key, modifiers});
 }
 
 bool ActionShortcut::shouldFire(int clickedKey) {

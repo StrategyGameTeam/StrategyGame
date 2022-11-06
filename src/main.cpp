@@ -20,7 +20,7 @@ Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
     return intersection_point;
 }
 
-void raylib_simple_example(GameState gs) {
+void raylib_simple_example(GameState &gs) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(640, 480, "Strategy game");
     SetTargetFPS(60);
@@ -133,7 +133,7 @@ int main () {
         GameState gs;
         const auto cwd = std::filesystem::current_path();
         ModuleLoader ml;
-        ml.RegisterExternalSymbol(&gs.inputMgr);
+        ml.RegisterExternalSymbol([&](sol::state& st){gs.inputMgr.InjectSymbols(st);});
         
         auto modulepath = cwd;
         modulepath.append("resources/modules");
