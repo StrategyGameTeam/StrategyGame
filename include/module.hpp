@@ -12,9 +12,6 @@ struct Module {
     Module(std::string name) : name(name) {}
 };
 
-struct ModuleSymbol {
-    virtual void InjectSymbols(sol::state& lua) = 0;
-};
 
 template <typename T>
 concept ModuleExtention = requires(T ext, sol::state ss) {

@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_map>
 
-#define MAX_MODIFIERS 2
+constexpr size_t MAX_MODIFIERS = 2;
 
 typedef std::function<void()> ActionCallback;
 
