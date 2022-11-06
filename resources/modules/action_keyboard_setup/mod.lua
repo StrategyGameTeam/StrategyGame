@@ -1,1 +1,1 @@
-redefine_action_shortcut("Toggle Debug Screen", 65)
+redefine_action_shortcut("Toggle Debug Screen", KEY_M)
