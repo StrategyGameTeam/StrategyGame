@@ -21,12 +21,12 @@ struct HexCoords;
 struct EdgeCoords;
 
 // Operators to get offsets from a cell. They are Left and Right combined with Up, Down, or just
-HexCoords operator "" _LU (size_t x);
-HexCoords operator "" _RU (size_t x);
-HexCoords operator "" _R  (size_t x);
-HexCoords operator "" _RD (size_t x);
-HexCoords operator "" _LD (size_t x);
-HexCoords operator "" _L  (size_t x);
+HexCoords operator "" _LU (unsigned long long x);
+HexCoords operator "" _RU (unsigned long long x);
+HexCoords operator "" _R  (unsigned long long x);
+HexCoords operator "" _RD (unsigned long long x);
+HexCoords operator "" _LD (unsigned long long x);
+HexCoords operator "" _L  (unsigned long long x);
 
 // Function to get the same offsets as in the operators
 HexCoords hexLU (int x);
