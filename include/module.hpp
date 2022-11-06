@@ -7,6 +7,8 @@
 #include <variant>
 #include <string>
 
+struct Module;
+
 // ===== Content declaration kinds =====
 #pragma region Declarations
 struct BaseDeclaration {
@@ -104,28 +106,31 @@ struct ModuleLoader {
             }
 
             // load everything
-            lua.open_libraries(sol::lib::base, sol::lib::jit, sol::lib::string, sol::lib::package);
+            lua.open_libraries(sol::lib::base, sol::lib::jit, sol::lib::string, sol::lib::package, sol::lib::math);
 
             LoadLuaTRec(lua, extentions...);
+            InjectSymbols(insert_it->second, lua);
 
-            InjectSymbols(lua);
             if (entry_point != modpath) {
                 std::string package_path = lua["package"]["path"];
                 lua["package"]["path"] = package_path + (!package_path.empty() ? ";" : "") + modpath.string() + "/?.lua";
             }
-            auto res = lua.script_file(entry_point.value().string());
-            if (!res.valid()) {
-                std::cout << "Module " << name << " had an error when running - unregistering\n";
+            try {
+                auto res = lua.script_file(entry_point.value().string());
+                if (!res.valid()) {
+                    std::cout << "Module " << name << " had an error when running - unregistering\n";
+                    m_loaded_modules.erase(lua.lua_state());
+                    continue;
+                }
+            } catch (std::exception& e) {
+                std::cerr << e.what() << '\n';
                 m_loaded_modules.erase(lua.lua_state());
+                continue;
             }
 
             insert_it->second.state = std::move(lua); // fucky ownership
         }
         std::cout << " === MODULE LOADING END === \n";
-    }
-
-    void InjectSymbols(sol::state& lua) {
-        lua.set_function("log", &ModuleLoader::DefaultLogger, this);
     }
 
     void DefaultLogger(sol::this_state ts, sol::string_view sv);

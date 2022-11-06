@@ -5,6 +5,7 @@
 #include <utility>
 #include <optional>
 #include <raymath.h>
+#include <random>
 
 /*
 Some notes about what the code means.
@@ -87,6 +88,26 @@ struct CylinderHexWorld {
         : width(width), height(height), empty_hex(empty_hex)
     {
         data.resize((width)*(height), default_hex);
+    }
+
+    void DEV_MapGenerator(sol::function f) {
+        std::random_device rd;
+        std::mt19937 mt (rd());
+
+        sol::table res = f(mt(), width, height);
+        const auto tsize = res.size();
+        for(size_t x = 0; x < tsize; x++) {
+            sol::table intable = res[i];
+            const auto isize = intable.size();
+            for(size_t y = 0; y < isize; y++) {
+                int value = intable[y];
+                at_ref_normalized(HexCoords::from_axial(x, y)) = value;
+            }
+        }
+    }
+
+    void InjectSymbols(sol::state &lua) {
+        lua.set_function("DEV_MapGenerator", &CylinderHexWorld<HexT>::DEV_MapGenerator, this);
     }
 
     HexCoords normalized_coords (const HexCoords abnormal) const {

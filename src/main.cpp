@@ -12,6 +12,7 @@
 struct GameState {
     InputMgr inputMgr;
     bool debug = true;
+    CylinderHexWorld<char> world = {100, 100, (char)0, (char)4};
 };
 
 Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
@@ -53,8 +54,6 @@ void raylib_simple_example(GameState &gs) {
     // for draging the map around
     Vector3 mouse_grab_point;
 
-    CylinderHexWorld<char> world (200, 100, (char)0, (char)4);
-
     while(!WindowShouldClose()) {
         // for some reason, dragging around is unstable
         // i know, that the logical cursor is slightly delayed, but still, it should be delayed
@@ -79,7 +78,7 @@ void raylib_simple_example(GameState &gs) {
         const auto bottom_left = intersect_with_ground_plane(GetMouseRay(Vector2{0, (float)GetScreenHeight()}, camera), 0.0f);
         const auto bottom_right = intersect_with_ground_plane(GetMouseRay({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera), 0.0f);
 
-        const auto to_render = world.all_within_unscaled_quad(
+        const auto to_render = gs.world.all_within_unscaled_quad(
             {top_left.x, top_left.z},    
             {top_right.x, top_right.z},    
             {bottom_left.x, bottom_left.z},    
@@ -87,7 +86,7 @@ void raylib_simple_example(GameState &gs) {
         );
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-            if (auto hx = world.at_ref_abnormal(hovered_coords)) {
+            if (auto hx = gs.world.at_ref_abnormal(hovered_coords)) {
                 hx.value().get() = (hx.value().get() + 1) % 4;
             }
         }
@@ -107,7 +106,7 @@ void raylib_simple_example(GameState &gs) {
             {
                 DrawGrid(10, 1.0f);
                 for(const auto coords : to_render) {
-                    auto hx = world.at(coords);
+                    auto hx = gs.world.at(coords);
                     auto tint = WHITE;
                     if (coords == hovered_coords) {
                         tint = BLUE;
