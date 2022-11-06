@@ -12,12 +12,19 @@ struct Module {
     Module(std::string name) : name(name) {}
 };
 
+struct ModuleSymbol {
+    virtual void InjectSymbols(sol::state& lua) = 0;
+};
+
+
 struct ModuleLoader {
     // some notes on that - the sol object sol::state belongs to the Module, but the pointer that is actually
     // at the heart od sol::state does not (that's the lua_State*). So, when destroying this variable,
     // the lua_State*s are destroyed by the destructor of the Module
     std::unordered_map<lua_State*, Module> m_loaded_modules;
     std::function<void(sol::string_view)> m_logger_fn;
+
+    std::vector<ModuleSymbol*> m_external_symbols;
 
     void DefaultLogger(sol::this_state ts, sol::string_view sv) {
         const auto res = m_loaded_modules.find(ts.lua_state());
@@ -87,6 +94,13 @@ struct ModuleLoader {
 
     void InjectSymbols(sol::state& lua) {
         lua.set_function("log", &ModuleLoader::DefaultLogger, this);
+        for (const auto &item: m_external_symbols){
+            item->InjectSymbols(lua);
+        }
+    }
+
+    void RegisterExternalSymbol(ModuleSymbol* symbol){
+        m_external_symbols.push_back(symbol);
     }
 };
 

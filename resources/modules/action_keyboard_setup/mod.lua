@@ -1,0 +1,1 @@
+redefine_action_shortcut("Toggle Debug Screen", 65)

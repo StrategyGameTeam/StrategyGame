@@ -9,21 +9,23 @@
 #include "hex.hpp"
 #include "input.hpp"
 
+struct GameState {
+    InputMgr inputMgr;
+    bool debug = true;
+};
+
 Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
     const auto moveunit = (plane_height-ray.position.y) / ray.direction.y;
     const auto intersection_point = Vector3Add(ray.position, Vector3Scale(ray.direction, moveunit));
     return intersection_point;
 }
 
-void raylib_simple_example() {
-    InputMgr inputMgr;
-    bool debug = true;
-
+void raylib_simple_example(GameState gs) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(640, 480, "Strategy game");
     SetTargetFPS(60);
 
-    inputMgr.registerAction({"Toggle Debug Screen", KEY_Q,{KEY_LEFT_CONTROL},[&] { debug = !debug; }});
+    gs.inputMgr.registerAction({"Toggle Debug Screen",[&] { gs.debug = !gs.debug; }}, {KEY_Q,{KEY_LEFT_CONTROL}});
 
     Camera3D camera;
     camera.fovy = 60.0;
@@ -32,8 +34,8 @@ void raylib_simple_example() {
     camera.target = Vector3{0, 0, 0};
     camera.position = Vector3{0, 10.0f, 5.0f};
 
-    inputMgr.registerAction({"Test Left", KEY_LEFT,{},[&]{camera.position.x -= 1;camera.target.x -= 1;}});
-    inputMgr.registerAction({"Test Right", KEY_RIGHT,{},[&]{camera.position.x += 1;camera.target.x += 1; }});
+    gs.inputMgr.registerAction({"Test Left",[&]{camera.position.x -= 1;camera.target.x -= 1;}}, {KEY_LEFT,{}});
+    gs.inputMgr.registerAction({"Test Right",[&]{camera.position.x += 1;camera.target.x += 1; }}, {KEY_RIGHT,{}});
 
     std::array<Model, 5> hex_models = {{
         LoadModel("resources/hexes/grass_forest.obj"),
@@ -96,7 +98,7 @@ void raylib_simple_example() {
             camera.fovy = Clamp(camera.fovy + scroll * 3.0f, 30.0f, 110.0f);
         };
 
-        inputMgr.handleKeyboard();
+        gs.inputMgr.handleKeyboard();
 
         BeginDrawing();
         {
@@ -116,7 +118,7 @@ void raylib_simple_example() {
                 }
             }
             EndMode3D();
-            if (debug) {
+            if (gs.debug) {
                 DrawFPS(10, 10);
                 DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
             }
@@ -128,8 +130,10 @@ void raylib_simple_example() {
 
 int main () {
     try {
+        GameState gs;
         const auto cwd = std::filesystem::current_path();
         ModuleLoader ml;
+        ml.RegisterExternalSymbol(&gs.inputMgr);
         
         auto modulepath = cwd;
         modulepath.append("resources/modules");
@@ -144,7 +148,7 @@ int main () {
         );
         ml.LoadModules(module_load_candidates);
 
-        raylib_simple_example();
+        raylib_simple_example(gs);
     } catch (std::exception& e) {
         std::cerr << e.what() << '\n';
     }
