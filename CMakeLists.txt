@@ -61,7 +61,7 @@ add_executable(
     stratgametest
         src/main.cpp
         src/hex.cpp
-)
+        src/input.cpp)
 
 target_include_directories(
     stratgametest

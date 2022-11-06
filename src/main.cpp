@@ -1,10 +1,13 @@
 #include <iostream>
+
 #define RAYMATH_IMPLEMENTATION
+
 #include "raylib.h"
 #include "raymath.h"
 #include <sol/sol.hpp>
 #include "module.hpp"
 #include "hex.hpp"
+#include "input.hpp"
 
 Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
     const auto moveunit = (plane_height-ray.position.y) / ray.direction.y;
@@ -13,9 +16,18 @@ Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
 }
 
 void raylib_simple_example() {
+    InputMgr inputMgr;
+    bool debug = true;
+
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(640, 480, "Strategy game");
     SetTargetFPS(60);
+
+    inputMgr.registerAction({
+                                     KEY_Q,
+                                     {KEY_LEFT_CONTROL},
+                                     [&] { debug = !debug; }
+                             });
 
     Camera3D camera;
     camera.fovy = 60.0;
@@ -23,7 +35,10 @@ void raylib_simple_example() {
     camera.up = Vector3{0, 1, 0};
     camera.target = Vector3{0, 0, 0};
     camera.position = Vector3{0, 10.0f, 5.0f};
-    
+
+    inputMgr.registerAction({KEY_LEFT,{},[&]{camera.position.x -= 1;camera.target.x -= 1;}});
+    inputMgr.registerAction({KEY_RIGHT,{},[&]{camera.position.x += 1;camera.target.x += 1; }});
+
     std::array<Model, 5> hex_models = {{
         LoadModel("resources/hexes/grass_forest.obj"),
         LoadModel("resources/hexes/grass_hill.obj"),
@@ -85,6 +100,8 @@ void raylib_simple_example() {
             camera.fovy = Clamp(camera.fovy + scroll * 3.0f, 30.0f, 110.0f);
         };
 
+        inputMgr.handleKeyboard();
+
         BeginDrawing();
         {
             ClearBackground(WHITE);
@@ -103,8 +120,10 @@ void raylib_simple_example() {
                 }
             }
             EndMode3D();
-            DrawFPS(10, 10);
-            DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
+            if (debug) {
+                DrawFPS(10, 10);
+                DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
+            }
         }
         EndDrawing();
     }
