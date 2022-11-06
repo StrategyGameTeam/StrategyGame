@@ -158,7 +158,7 @@ void InputMgr::RedefineKeyShortcut(sol::this_state ts, sol::string_view sv, Keyb
         std::cout << "Could not redefine shortcut - Unsupported key\n";
         throw std::invalid_argument("Unsupported key: 1");
     }
-    auto [insert_it, insert_ok] = shortcuts.emplace(sv, ActionShortcut{key, modifiers});
+    auto [insert_it, insert_ok] = shortcuts.emplace(static_cast<std::string>(sv), ActionShortcut{key, modifiers});
     if (!insert_ok) {
         std::cout << "Could not redefine shortcut - this should not happen, and should be reported to the developers\n";
     } else {

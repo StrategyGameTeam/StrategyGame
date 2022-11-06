@@ -22,15 +22,15 @@ struct ActionShortcut {
     bool shouldFire(int clickedKey);
 };
 
-struct InputMgr : ModuleSymbol {
-    std::vector<const Action> actions;
-    std::unordered_map<std::string, const ActionShortcut> shortcuts;
+struct InputMgr {
+    std::vector<Action> actions;
+    std::unordered_map<std::string, ActionShortcut> shortcuts;
 
     void registerAction(const Action &action, const ActionShortcut &defaultShortcut);
     void processKeyPress(int key);
     void handleKeyboard();
 
-    void InjectSymbols(sol::state &lua) override;
+    void InjectSymbols(sol::state &lua);
 
     void RedefineKeyShortcut(sol::this_state ts, sol::string_view sv, KeyboardKey key, std::array<KeyboardKey, MAX_MODIFIERS> modifiers);
 };

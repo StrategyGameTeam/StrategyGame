@@ -16,15 +16,18 @@ struct ModuleSymbol {
     virtual void InjectSymbols(sol::state& lua) = 0;
 };
 
+template <typename T>
+concept ModuleExtention = requires(T ext, sol::state ss) {
+    { ext.InjectSymbols(ss) };
+};
 
+template <ModuleExtention ...ExtentionTS>
 struct ModuleLoader {
     // some notes on that - the sol object sol::state belongs to the Module, but the pointer that is actually
     // at the heart od sol::state does not (that's the lua_State*). So, when destroying this variable,
     // the lua_State*s are destroyed by the destructor of the Module
     std::unordered_map<lua_State*, Module> m_loaded_modules;
     std::function<void(sol::string_view)> m_logger_fn;
-
-    std::vector<ModuleSymbol*> m_external_symbols;
 
     void DefaultLogger(sol::this_state ts, sol::string_view sv) {
         const auto res = m_loaded_modules.find(ts.lua_state());
@@ -43,7 +46,14 @@ struct ModuleLoader {
         return paths;
     }
 
-    auto LoadModules(const std::vector<std::filesystem::path>& module_paths) {
+    void LoadLuaTRec(sol::state &lua) {}
+    template <ModuleExtention T, ModuleExtention ...TS>
+    void LoadLuaTRec(sol::state &lua, T& m, TS&... ms) {
+        m.InjectSymbols(lua);
+        LoadLuaTRec(lua, ms...);
+    }
+
+    auto LoadModules(const std::vector<std::filesystem::path>& module_paths, ExtentionTS&... extentions) {
         std::cout << " === MODULE LOADING START === \n";
         for(const auto& modpath : module_paths) {
             std::cout << "Starting to load " << modpath.string() << '\n';
@@ -76,6 +86,9 @@ struct ModuleLoader {
 
             // load everything
             lua.open_libraries(sol::lib::base, sol::lib::jit, sol::lib::string, sol::lib::package);
+
+            LoadLuaTRec(lua, extentions...);
+
             InjectSymbols(lua);
             if (entry_point != modpath) {
                 std::string package_path = lua["package"]["path"];
@@ -94,13 +107,6 @@ struct ModuleLoader {
 
     void InjectSymbols(sol::state& lua) {
         lua.set_function("log", &ModuleLoader::DefaultLogger, this);
-        for (const auto &item: m_external_symbols){
-            item->InjectSymbols(lua);
-        }
-    }
-
-    void RegisterExternalSymbol(ModuleSymbol* symbol){
-        m_external_symbols.push_back(symbol);
     }
 };
 

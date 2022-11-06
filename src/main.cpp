@@ -132,8 +132,7 @@ int main () {
     try {
         GameState gs;
         const auto cwd = std::filesystem::current_path();
-        ModuleLoader ml;
-        ml.RegisterExternalSymbol(&gs.inputMgr);
+        ModuleLoader<InputMgr> ml;
         
         auto modulepath = cwd;
         modulepath.append("resources/modules");
@@ -146,7 +145,8 @@ int main () {
             ),
             module_load_candidates.end()
         );
-        ml.LoadModules(module_load_candidates);
+        
+        ml.LoadModules(module_load_candidates, gs.inputMgr);
 
         raylib_simple_example(gs);
     } catch (std::exception& e) {
