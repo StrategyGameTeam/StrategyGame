@@ -4,12 +4,57 @@
 #include <iostream>
 #include <concepts>
 #include <unordered_map>
+#include <variant>
+#include <string>
+
+// ===== Content declaration kinds =====
+#pragma region Declarations
+struct BaseDeclaration {
+    const Module& mod;
+};
+
+struct HexDeclaration : public BaseDeclaration {
+    std::string name;
+    std::filesystem::path model;
+};
+
+struct WorldgenDeclaration : public BaseDeclaration {
+    std::string name;
+    sol::protected_function generator;
+};
+
+using Declaration = std::variant<HexDeclaration, WorldgenDeclaration>;
+#pragma endregion Declarations
+
+// ===== Issues with modules =====
+#pragma region Issues
+struct BaseIssue {
+    bool is_critical;
+};
+
+struct InvalidPathIssue : public BaseIssue { std::string path; };
+
+using ModuleIssues = std::variant<InvalidPathIssue>;
+#pragma endregion Issues
 
 struct Module {
     std::string name;
     sol::state state;
+    std::vector<Declaration> declarations;
+    std::optional<std::reference_wrapper<std::vector<ModuleIssues>>> current_issues;
 
     Module(std::string name) : name(name) {}
+
+    void AddIssue(auto issue);
+
+    void ModuleInfo(sol::table t);
+    void DeclareHex(sol::table t);
+};
+
+
+template <typename T>
+concept ModuleExtention = requires(T ext, sol::state ss) {
+    { ext.InjectSymbols(ss) };
 };
 
 struct ModuleLoader {
@@ -19,24 +64,15 @@ struct ModuleLoader {
     std::unordered_map<lua_State*, Module> m_loaded_modules;
     std::function<void(sol::string_view)> m_logger_fn;
 
-    void DefaultLogger(sol::this_state ts, sol::string_view sv) {
-        const auto res = m_loaded_modules.find(ts.lua_state());
-        const auto name = res != m_loaded_modules.end() ? res->second.name : "???";
-        std::cout << "LUA [" << name << "]: " << sv << '\n';
+    void LoadLuaTRec(sol::state &lua) {}
+    template <ModuleExtention T, ModuleExtention ...TS>
+    void LoadLuaTRec(sol::state &lua, T& m, TS&... ms) {
+        m.InjectSymbols(lua);
+        LoadLuaTRec(lua, ms...);
     }
 
-    auto ListCandidateModules (std::filesystem::path load_path) {
-        auto iter = std::filesystem::directory_iterator(std::filesystem::path(load_path));
-        std::vector<std::filesystem::path> paths;
-        for(const auto &file : iter) {
-            if (file.is_directory() || (file.is_regular_file() && file.path().extension() == ".lua")) {
-                paths.push_back(file);
-            }
-        }
-        return paths;
-    }
-
-    auto LoadModules(const std::vector<std::filesystem::path>& module_paths) {
+    template <ModuleExtention ...ExtentionTS>
+    auto LoadModules(const std::vector<std::filesystem::path>& module_paths, ExtentionTS&... extentions) {
         std::cout << " === MODULE LOADING START === \n";
         for(const auto& modpath : module_paths) {
             std::cout << "Starting to load " << modpath.string() << '\n';
@@ -69,6 +105,9 @@ struct ModuleLoader {
 
             // load everything
             lua.open_libraries(sol::lib::base, sol::lib::jit, sol::lib::string, sol::lib::package);
+
+            LoadLuaTRec(lua, extentions...);
+
             InjectSymbols(lua);
             if (entry_point != modpath) {
                 std::string package_path = lua["package"]["path"];
@@ -88,5 +127,9 @@ struct ModuleLoader {
     void InjectSymbols(sol::state& lua) {
         lua.set_function("log", &ModuleLoader::DefaultLogger, this);
     }
+
+    void DefaultLogger(sol::this_state ts, sol::string_view sv);
+    std::vector<std::filesystem::path> ListCandidateModules (std::filesystem::path load_path);
+    void InjectSymbols(Module &mod, sol::state& lua);
 };
 
