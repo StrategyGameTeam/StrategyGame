@@ -5,6 +5,8 @@
 #include <utility>
 #include <optional>
 #include <raymath.h>
+#include <random>
+#include <sol/sol.hpp>
 
 /*
 Some notes about what the code means.
@@ -37,7 +39,7 @@ HexCoords hexLD (int x);
 HexCoords hexL  (int x);
 
 
-// Edges of a hex
+// Edges of a hex 
 enum class Edge {
     RightUp = 0, RU = 0,
     Right = 1, R = 1,
@@ -86,7 +88,33 @@ struct CylinderHexWorld {
     CylinderHexWorld (int width, int height, HexT default_hex, HexT empty_hex)
         : width(width), height(height), empty_hex(empty_hex)
     {
-        data.resize((width)*(height), default_hex);
+        data.resize((width)*(height), default_hex); 
+    }
+
+    void DEV_MapGenerator(sol::protected_function f) {
+        std::random_device rd;
+        std::mt19937 mt (rd());
+        sol::protected_function_result res = f(mt(), width, height);
+        
+        if (!res.valid()) {
+            std::cerr << "ERROR: " << res.get<sol::string_view>() << '\n'; 
+        }
+
+        sol::table t = res.get<sol::table>();
+
+        const auto tsize = t.size();
+        for(size_t x = 1; x <= tsize; x++) {
+            sol::table intable = t[x];            
+            const auto isize = intable.size();
+            for(size_t y = 1; y <= isize; y++) {
+                int value = intable[y];
+                at_ref_normalized(HexCoords::from_axial(x-1, y-1)) = value;
+            }
+        }
+    }
+
+    void InjectSymbols(sol::state &lua) {
+        lua.set_function("DEV_MapGenerator", &CylinderHexWorld<HexT>::DEV_MapGenerator, this);
     }
 
     HexCoords normalized_coords (const HexCoords abnormal) const {
