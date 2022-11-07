@@ -4,6 +4,7 @@ void ModuleLoader::InjectSymbols(Module &mod, sol::state& lua) {
     using sol::as_function;
 
     lua.set_function("log", &ModuleLoader::DefaultLogger, this);
+    lua.set_function("pow", sol::overload(powf, powl));
     lua.create_named_table("MOD",
         "ModuleInfo", as_function(&Module::ModuleInfo, &mod),
         "DeclareHex", as_function(&Module::DeclareHex, &mod)
