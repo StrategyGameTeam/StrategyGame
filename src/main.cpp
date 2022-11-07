@@ -12,7 +12,7 @@
 struct GameState {
     InputMgr inputMgr;
     bool debug = true;
-    CylinderHexWorld<char> world = {100, 100, (char)0, (char)4};
+    CylinderHexWorld<char> world = {100, 50, (char)0, (char)3};
 };
 
 Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
@@ -55,6 +55,7 @@ void raylib_simple_example(GameState &gs) {
     Vector3 mouse_grab_point;
 
     while(!WindowShouldClose()) {
+        const auto frame_start = std::chrono::steady_clock::now();
         // for some reason, dragging around is unstable
         // i know, that the logical cursor is slightly delayed, but still, it should be delayed
         // equally for all of the frame. The exact pointthat is selected will be slightly changing,
@@ -78,12 +79,7 @@ void raylib_simple_example(GameState &gs) {
         const auto bottom_left = intersect_with_ground_plane(GetMouseRay(Vector2{0, (float)GetScreenHeight()}, camera), 0.0f);
         const auto bottom_right = intersect_with_ground_plane(GetMouseRay({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera), 0.0f);
 
-        const auto to_render = gs.world.all_within_unscaled_quad(
-            {top_left.x, top_left.z},    
-            {top_right.x, top_right.z},    
-            {bottom_left.x, bottom_left.z},    
-            {bottom_right.x, bottom_right.z}    
-        );
+        
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
             if (auto hx = gs.world.at_ref_abnormal(hovered_coords)) {
@@ -93,12 +89,22 @@ void raylib_simple_example(GameState &gs) {
 
         // this is temporary and also terrible, and also shows the bad frustom in all_within_unscaled_quad
         const auto scroll = GetMouseWheelMove();
-        if (abs(scroll) > 0.01f) {
-            camera.fovy = Clamp(camera.fovy + scroll * 3.0f, 30.0f, 110.0f);
-        };
+        Vector3 direction = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
+        camera.position = Vector3Add(camera.position, Vector3Scale(direction, scroll));
 
         gs.inputMgr.handleKeyboard();
 
+        const auto light_logic_end = std::chrono::steady_clock::now();
+
+        const auto to_render = gs.world.all_within_unscaled_quad(
+            {top_left.x, top_left.z},    
+            {top_right.x, top_right.z},    
+            {bottom_left.x, bottom_left.z},    
+            {bottom_right.x, bottom_right.z}    
+        );
+
+        const auto rendering_start = std::chrono::steady_clock::now();
+    
         BeginDrawing();
         {
             ClearBackground(WHITE);
@@ -123,6 +129,14 @@ void raylib_simple_example(GameState &gs) {
             }
         }
         EndDrawing();
+
+        const auto rendering_end = std::chrono::steady_clock::now();
+
+        const auto total_time = (rendering_end - frame_start).count();
+        const auto rendering_time = (rendering_end - rendering_start).count();
+        const auto vis_test = (rendering_start - light_logic_end).count();
+
+        std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
     }
     CloseWindow();
 }

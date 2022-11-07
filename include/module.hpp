@@ -106,7 +106,7 @@ struct ModuleLoader {
             }
 
             // load everything
-            lua.open_libraries(sol::lib::base, sol::lib::jit, sol::lib::string, sol::lib::package, sol::lib::math);
+            lua.open_libraries(sol::lib::base, sol::lib::jit, sol::lib::string, sol::lib::package, sol::lib::math, sol::lib::table);
 
             LoadLuaTRec(lua, extentions...);
             InjectSymbols(insert_it->second, lua);
