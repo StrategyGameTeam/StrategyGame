@@ -80,8 +80,12 @@ target_link_libraries(
         ${LUA_LIB_FILES}
 )
 
-add_custom_command(
-    TARGET stratgametest POST_BUILD
+add_custom_target(
+    copy_resources ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/ $<TARGET_FILE_DIR:stratgametest>/resources
+)
+
+add_dependencies(
+    stratgametest copy_resources
 )
