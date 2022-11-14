@@ -159,7 +159,7 @@ int main () {
             module_load_candidates.end()
         );
         
-        ml.LoadModules(module_load_candidates, gs.inputMgr,gs.world);
+        ml.LoadModules(module_load_candidates, gs.inputMgr, gs.world);
 
         raylib_simple_example(gs);
     } catch (std::exception& e) {

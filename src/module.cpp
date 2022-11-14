@@ -1,14 +1,9 @@
 #include "module.hpp"
 
-void ModuleLoader::InjectSymbols(Module &mod, sol::state& lua) {
+void ModuleLoader::InjectSymbols(sol::state& lua) {
     using sol::as_function;
-
     lua.set_function("log", &ModuleLoader::DefaultLogger, this);
     lua.set_function("pow", sol::overload(powf, powl));
-    lua.create_named_table("MOD",
-        "ModuleInfo", as_function(&Module::ModuleInfo, &mod),
-        "DeclareHex", as_function(&Module::DeclareHex, &mod)
-    );
 }
 
 // ===== Lua API =====
@@ -19,31 +14,15 @@ void ModuleLoader::DefaultLogger(sol::this_state ts, sol::string_view sv) {
     std::cout << "LUA [" << name << "]: " << sv << '\n';
 }
 
-void Module::ModuleInfo (sol::table t) {
-    const sol::optional<std::string_view> name = t["name"];
-    if (name) {
-        std::cout << "Module called " << name.value() << " called ModuleInfo!\n";
-    } else {
-        std::cout << "Module called ModuleInfo with no name!\n";
-    }
-}
-
-void Module::DeclareHex (sol::table t) {
-    sol::optional<sol::string_view> name = t["name"];
-    sol::optional<sol::string_view> model = t["model"];
-
-    std::cout << "DECLHEX: " << name.value_or("???") << " " << model.value_or("???") << '\n';
-}
-
 // ===== Loading stuff =====
 
 std::vector<std::filesystem::path> ModuleLoader::ListCandidateModules(std::filesystem::path load_path) {
-    auto iter = std::filesystem::directory_iterator(std::filesystem::path(load_path));
+    auto iter = std::filesystem::directory_iterator(load_path);
     std::vector<std::filesystem::path> paths;
     for(const auto &file : iter) {
-        if (file.is_directory()) {
-            paths.push_back(file);
-        }
+        if (!file.is_directory()) { continue; } 
+        if (!std::filesystem::is_regular_file(file.path() / "mod.lua")) { continue; }
+        paths.push_back(file);
     }
     return paths;
 }
