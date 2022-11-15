@@ -17,17 +17,21 @@ struct InvalidPathIssue { std::string path; };
 struct UnknownErrorIssue { std::string message; };
 // Lua done goofed
 struct LuaErrorIssue { std::string message; };
-using ModuleIssues = std::variant<InvalidPathIssue, UnknownErrorIssue, LuaErrorIssue>;
+// Running a module did not return a table
+struct NotATableIssue { std::string mod; };
+using ModuleIssues = std::variant<InvalidPathIssue, UnknownErrorIssue, LuaErrorIssue, NotATableIssue>;
 #pragma endregion Issues
 
 struct Module {
-    std::string name;
+    std::string entry_point;
     sol::state state;
-    std::optional<std::reference_wrapper<std::vector<ModuleIssues>>> current_issues;
-    Module(std::string name) : name(name) {}
-    void ModuleInfo(sol::table t);
-};
+    sol::table module_root_object;
 
+    Module(std::string entry) : entry_point(entry) {}
+
+    void ModuleInfo(sol::table t);
+    std::optional<std::string_view> name() const;
+};
 
 template <typename T>
 concept ModuleExtention = requires(T ext, sol::state ss) {
@@ -37,9 +41,10 @@ concept ModuleExtention = requires(T ext, sol::state ss) {
 struct ModuleLoader {
     // some notes on that - the sol object sol::state belongs to the Module, but the pointer that is actually
     // at the heart od sol::state does not (that's the lua_State*). So, when destroying this variable,
-    // the lua_State*s are destroyed by the destructor of the Module
+    // the lua_State*s are destroyed by the destructor of the Module.
+    // Also, iterators to unordered_map can get invalidated, but not references to things behind that
+    // (in most implementations, it's a linked list. but that's a standard guaranteed prop)
     std::unordered_map<lua_State*, Module> m_loaded_modules;
-    std::function<void(sol::string_view)> m_logger_fn;
 
     // module loader should not me mobile in memory - make one, and reference to it
     ModuleLoader() = default;
@@ -54,11 +59,15 @@ struct ModuleLoader {
     // Goes through a directory to find modules that one could attempt to load
     std::vector<std::filesystem::path> ListCandidateModules (std::filesystem::path load_path);
     
+    // Gets an forward_iterator through modules
+    auto iter_start() { return m_loaded_modules.begin(); }
+    auto iter_end() { return m_loaded_modules.end(); }
+
     // Gives lua needed symbols (which is a bad name - think functions and variables)
     void InjectSymbols(sol::state& lua);
 
     // Used to call the method InjecSymbols on a bunch of objects of different types
-    void LoadLuaTRec(sol::state &lua) {}
+    void LoadLuaTRec(sol::state &lua) {(void)lua;}
     template <ModuleExtention T, ModuleExtention ...TS>
     void LoadLuaTRec(sol::state &lua, T& m, TS&... ms) {
         m.InjectSymbols(lua);
@@ -67,7 +76,7 @@ struct ModuleLoader {
 
     // Start running lua modules
     template <ModuleExtention ...ExtentionTS>
-    auto LoadModules(const std::vector<std::filesystem::path>& module_paths, ExtentionTS&... extentions) {
+    std::vector<ModuleIssues> LoadModules(const std::vector<std::filesystem::path>& module_paths, ExtentionTS&... extentions) {
         std::cout << " === MODULE LOADING START === \n";
         std::vector<ModuleIssues> issues;
 
@@ -76,7 +85,7 @@ struct ModuleLoader {
                 std::cout << "Starting to load " << modpath.string() << '\n';
                 const auto entry_point = modpath / "mod.lua";
                 if (!std::filesystem::is_regular_file(entry_point)) {
-                    issues.push_back(InvalidPathIssue{.path = entry_point.string()});
+                    issues.push_back(InvalidPathIssue{.path = entry_point.string() });
                     continue;
                 }
 
@@ -89,13 +98,17 @@ struct ModuleLoader {
                 
                 // allow lua to import from the module directory
                 std::string package_path = lua["package"]["path"];
-                lua["package"]["path"] = package_path + (!package_path.empty() ? ";" : "") + modpath.string() + "/?.lua";
+                lua["package"]["path"] = package_path + (!package_path.empty() ? ";" : "") + std::filesystem::absolute(modpath).string() + "/?.lua";
 
                 // run the module code
                 auto res = lua.safe_script_file(entry_point.string());
                 if (!res.valid()) {
                     sol::error err = res;
                     issues.push_back(LuaErrorIssue{.message = err.what() });
+                    continue;
+                }
+                if (res.get_type() != sol::type::table) {
+                    issues.push_back(NotATableIssue{.mod = entry_point.string() });
                     continue;
                 }
 
@@ -106,12 +119,14 @@ struct ModuleLoader {
                     continue;
                 }
 
+                insert_it->second.module_root_object = res.get<sol::table>();
                 insert_it->second.state = std::move(lua); // fucky ownership
             } catch (std::exception& exc) {
-                issues.push_back(UnknownErrorIssue{.message = exc.what()});
+                issues.push_back(UnknownErrorIssue{.message = exc.what() });
             }
         }
         std::cout << " === MODULE LOADING END === \n";
+        return issues;
     }    
 };
 

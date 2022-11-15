@@ -145,6 +145,9 @@ end
 
 DEV_MapGenerator(returnMap)
 
+return {
+  name = "basic_world_generators"
+}
 
 
 --local p2 = perlin(1235)

@@ -8,11 +8,14 @@
 #include "module.hpp"
 #include "hex.hpp"
 #include "input.hpp"
+#include "resource_store.hpp"
 
 struct GameState {
     InputMgr inputMgr;
     bool debug = true;
     CylinderHexWorld<char> world = {100, 50, (char)0, (char)3};
+    ResourceStore resourceStore;
+    ModuleLoader moduleLoader;
 };
 
 Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
@@ -20,6 +23,9 @@ Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
     const auto intersection_point = Vector3Add(ray.position, Vector3Scale(ray.direction, moveunit));
     return intersection_point;
 }
+
+template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 void raylib_simple_example(GameState &gs) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
@@ -79,8 +85,6 @@ void raylib_simple_example(GameState &gs) {
         const auto bottom_left = intersect_with_ground_plane(GetMouseRay(Vector2{0, (float)GetScreenHeight()}, camera), 0.0f);
         const auto bottom_right = intersect_with_ground_plane(GetMouseRay({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera), 0.0f);
 
-        
-
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
             if (auto hx = gs.world.at_ref_abnormal(hovered_coords)) {
                 hx.value().get() = (hx.value().get() + 1) % 4;
@@ -136,7 +140,7 @@ void raylib_simple_example(GameState &gs) {
         const auto rendering_time = (rendering_end - rendering_start).count();
         const auto vis_test = (rendering_start - light_logic_end).count();
 
-        std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
+        // std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
     }
     CloseWindow();
 }
@@ -145,12 +149,11 @@ int main () {
     try {
         GameState gs;
         const auto cwd = std::filesystem::current_path();
-        ModuleLoader ml;
         
         auto modulepath = cwd;
         modulepath.append("resources/modules");
 
-        auto module_load_candidates = ml.ListCandidateModules(modulepath);
+        auto module_load_candidates = gs.moduleLoader.ListCandidateModules(modulepath);
         // for the time this just disables nothing, but change the lambda to start banning stuff
         module_load_candidates.erase(
             std::remove_if(module_load_candidates.begin(), module_load_candidates.end(), 
@@ -159,7 +162,27 @@ int main () {
             module_load_candidates.end()
         );
         
-        ml.LoadModules(module_load_candidates, gs.inputMgr, gs.world);
+        bool any_issues_critical = false;
+        const auto deal_with_an_issue = [&](auto issue){
+            std::visit(overloaded{
+                [&](auto arg) { std::cout << "An issue that was not properly handled. Please, inform developers\n"; },
+                [&](InvalidPathIssue i) { std::cout << "Module in " << i.path << " did not have a structure that allowed it to load properly\n"; any_issues_critical = true; },
+                [&](UnknownErrorIssue i) { std::cout << "An unknown error occured. This probably is a bug in the game, and not in the module. Please notify the developers. Error: " << i.message << '\n'; any_issues_critical = true; },
+                [&](LuaErrorIssue i) { std::cout << "There was an error while running the module code. Error: " << i.message << '\n'; any_issues_critical = true; },
+                [&](NotATableIssue i) { std::cout << "Module in " << i.mod << " did not provide its information in a format that we can understand.\n"; any_issues_critical = true; }
+            }, issue);
+        };
+
+        for(const auto issue : gs.moduleLoader.LoadModules(module_load_candidates, gs.inputMgr, gs.world)) {
+            deal_with_an_issue(issue);
+        }
+        for(const auto issue : gs.resourceStore.LoadModuleResources(gs.moduleLoader)) {
+            deal_with_an_issue(issue);
+        }
+
+        if (any_issues_critical) {
+            return 0;
+        }
 
         raylib_simple_example(gs);
     } catch (std::exception& e) {

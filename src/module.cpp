@@ -10,8 +10,14 @@ void ModuleLoader::InjectSymbols(sol::state& lua) {
 
 void ModuleLoader::DefaultLogger(sol::this_state ts, sol::string_view sv) {
     const auto res = m_loaded_modules.find(ts.lua_state());
-    const auto name = res != m_loaded_modules.end() ? res->second.name : "???";
+    const auto name = res != m_loaded_modules.end() ? res->second.name().value_or(res->second.entry_point) : "???";
     std::cout << "LUA [" << name << "]: " << sv << '\n';
+}
+
+// ===== Module functions =====
+
+std::optional<std::string_view> Module::name() const {
+    return module_root_object["name"];
 }
 
 // ===== Loading stuff =====
