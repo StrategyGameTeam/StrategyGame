@@ -8,7 +8,7 @@
 #include "module.hpp"
 #include "hex.hpp"
 #include "input.hpp"
-#include "resource_store.hpp"
+#include "resources.hpp"
 
 struct GameState {
     InputMgr inputMgr;
@@ -28,10 +28,6 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 void raylib_simple_example(GameState &gs) {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(640, 480, "Strategy game");
-    SetTargetFPS(60);
-
     gs.inputMgr.registerAction({"Toggle Debug Screen",[&] { gs.debug = !gs.debug; }}, {KEY_Q,{KEY_LEFT_CONTROL}});
 
     Camera3D camera;
@@ -140,13 +136,16 @@ void raylib_simple_example(GameState &gs) {
         const auto rendering_time = (rendering_end - rendering_start).count();
         const auto vis_test = (rendering_start - light_logic_end).count();
 
-        // std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
+        std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
     }
-    CloseWindow();
 }
 
 int main () {
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    InitWindow(640, 480, "Strategy game");
+    SetTargetFPS(60);
     try {
+
         GameState gs;
         const auto cwd = std::filesystem::current_path();
         
@@ -165,27 +164,37 @@ int main () {
         bool any_issues_critical = false;
         const auto deal_with_an_issue = [&](auto issue){
             std::visit(overloaded{
-                [&](auto arg) { std::cout << "An issue that was not properly handled. Please, inform developers\n"; },
-                [&](InvalidPathIssue i) { std::cout << "Module in " << i.path << " did not have a structure that allowed it to load properly\n"; any_issues_critical = true; },
-                [&](UnknownErrorIssue i) { std::cout << "An unknown error occured. This probably is a bug in the game, and not in the module. Please notify the developers. Error: " << i.message << '\n'; any_issues_critical = true; },
-                [&](LuaErrorIssue i) { std::cout << "There was an error while running the module code. Error: " << i.message << '\n'; any_issues_critical = true; },
-                [&](NotATableIssue i) { std::cout << "Module in " << i.mod << " did not provide its information in a format that we can understand.\n"; any_issues_critical = true; }
+                [&](auto) { std::cout << "An issue that was not properly handled. Please, inform developers\n"; any_issues_critical = true; },
+                [&](issues::InvalidPath i) { std::cout << "Module in " << i.path << " did not have a structure that allowed it to load properly\n"; any_issues_critical = true; },
+                [&](issues::UnknownError i) { std::cout << "An unknown error occured. This probably is a bug in the game, and not in the module. Please notify the developers. Error: " << i.message << '\n'; any_issues_critical = true; },
+                [&](issues::LuaError i) { std::cout << "There was an error while running the module code. Error: " << i.message << '\n'; any_issues_critical = true; },
+                [&](issues::NotATable i) { std::cout << "Module in " << i.mod << " did not provide its information in a format that we can understand.\n"; any_issues_critical = true; },
+                [&](issues::ExtraneousElement i) { std::cout << "There was an extre element in the module definition in module " << i.mod << " at " << i.in << '\n';  },
+                [&](issues::RequiredModuleNotFound i) { std::cout << "Module " << i.requiree << " requires the module " << i.required << ", but it was not found\n"; any_issues_critical = true; },
+                [&](issues::InvalidFile i) { std::cout << "Module " << i.what_module << " tried to load the file " << i.filepath << ", but it could not be loaded\n"; any_issues_critical = true; },
+                [&](issues::MissingField i) { std::cout << "Module " << i.what_module << " provided a definition of \"" << i.what_def << "\", but it was missing the field " << i.fieldname << "\n"; any_issues_critical = true; },
+                [&](issues::InvalidKey i) { std::cout << "Module " << i.what_module << " provided an invalid key when defining " << i.what_def << '\n'; any_issues_critical = true; }
             }, issue);
         };
 
-        for(const auto issue : gs.moduleLoader.LoadModules(module_load_candidates, gs.inputMgr, gs.world)) {
+        for(const auto& issue : gs.moduleLoader.LoadModules(module_load_candidates, gs.inputMgr, gs.world)) {
             deal_with_an_issue(issue);
         }
-        for(const auto issue : gs.resourceStore.LoadModuleResources(gs.moduleLoader)) {
-            deal_with_an_issue(issue);
+        if (any_issues_critical) {
+            return 0;
         }
 
+        for(const auto& issue : gs.resourceStore.LoadModuleResources(gs.moduleLoader)) {
+            deal_with_an_issue(issue);
+        }
         if (any_issues_critical) {
             return 0;
         }
 
         raylib_simple_example(gs);
+
     } catch (std::exception& e) {
         std::cerr << e.what() << '\n';
     }
+    CloseWindow();
 }

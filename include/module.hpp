@@ -4,23 +4,31 @@
 #include <iostream>
 #include <concepts>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <string>
 
 struct Module;
 
 // ===== Issues with modules =====
-#pragma region Issues
-// We cannot read the given path as valid lua
-struct InvalidPathIssue { std::string path; };
-// Something happened, no clue what
-struct UnknownErrorIssue { std::string message; };
-// Lua done goofed
-struct LuaErrorIssue { std::string message; };
-// Running a module did not return a table
-struct NotATableIssue { std::string mod; };
-using ModuleIssues = std::variant<InvalidPathIssue, UnknownErrorIssue, LuaErrorIssue, NotATableIssue>;
-#pragma endregion Issues
+namespace issues {
+    // We cannot read the given path as valid lua
+    struct InvalidPath { std::string path; };
+    // Something happened, no clue what
+    struct UnknownError { std::string message; };
+    // Lua done goofed
+    struct LuaError { std::string message; };
+    // Running a module did not return a table
+    struct NotATable { std::string mod; };
+    // A module that is needed is not available
+    struct RequiredModuleNotFound { std::string requiree; std::string required; };
+    // A module did not declare its name
+    struct UnnamedModule { std::string path; };
+    // Something extra was present in the configuration
+    struct ExtraneousElement { std::string mod; std::string in; };
+
+    using ModuleIssues = std::variant<InvalidPath, UnknownError, LuaError, NotATable, RequiredModuleNotFound, UnnamedModule, ExtraneousElement>;
+}
 
 struct Module {
     std::string entry_point;
@@ -30,7 +38,8 @@ struct Module {
     Module(std::string entry) : entry_point(entry) {}
 
     void ModuleInfo(sol::table t);
-    std::optional<std::string_view> name() const;
+    sol::optional<std::string_view> name() const;
+    std::string name_unsafe () const;
 };
 
 template <typename T>
@@ -59,33 +68,31 @@ struct ModuleLoader {
     // Goes through a directory to find modules that one could attempt to load
     std::vector<std::filesystem::path> ListCandidateModules (std::filesystem::path load_path);
     
-    // Gets an forward_iterator through modules
-    auto iter_start() { return m_loaded_modules.begin(); }
-    auto iter_end() { return m_loaded_modules.end(); }
-
     // Gives lua needed symbols (which is a bad name - think functions and variables)
     void InjectSymbols(sol::state& lua);
+    // Tests if simple declared needs are met
+    void BasicValidation(std::vector<issues::ModuleIssues> &issues);
 
     // Used to call the method InjecSymbols on a bunch of objects of different types
-    void LoadLuaTRec(sol::state &lua) {(void)lua;}
+    static void LoadLuaTRec(sol::state &lua) {(void)lua;}
     template <ModuleExtention T, ModuleExtention ...TS>
-    void LoadLuaTRec(sol::state &lua, T& m, TS&... ms) {
+    static void LoadLuaTRec(sol::state &lua, T& m, TS&... ms) {
         m.InjectSymbols(lua);
         LoadLuaTRec(lua, ms...);
     }
 
     // Start running lua modules
     template <ModuleExtention ...ExtentionTS>
-    std::vector<ModuleIssues> LoadModules(const std::vector<std::filesystem::path>& module_paths, ExtentionTS&... extentions) {
-        std::cout << " === MODULE LOADING START === \n";
-        std::vector<ModuleIssues> issues;
+    std::vector<issues::ModuleIssues> LoadModules(const std::vector<std::filesystem::path>& module_paths, ExtentionTS&... extentions) {
+        std::vector<issues::ModuleIssues> issues;
 
+        // Load and run Lua
         for(const auto& modpath : module_paths) {
             try {
                 std::cout << "Starting to load " << modpath.string() << '\n';
                 const auto entry_point = modpath / "mod.lua";
                 if (!std::filesystem::is_regular_file(entry_point)) {
-                    issues.push_back(InvalidPathIssue{.path = entry_point.string() });
+                    issues.push_back(issues::InvalidPath{.path = entry_point.string() });
                     continue;
                 }
 
@@ -104,28 +111,31 @@ struct ModuleLoader {
                 auto res = lua.safe_script_file(entry_point.string());
                 if (!res.valid()) {
                     sol::error err = res;
-                    issues.push_back(LuaErrorIssue{.message = err.what() });
+                    issues.push_back(issues::LuaError{.message = err.what() });
                     continue;
                 }
                 if (res.get_type() != sol::type::table) {
-                    issues.push_back(NotATableIssue{.mod = entry_point.string() });
+                    issues.push_back(issues::NotATable{.mod = entry_point.string() });
                     continue;
                 }
 
                 // create and save the module to the registry
                 auto [insert_it, insert_ok] = m_loaded_modules.emplace(lua.lua_state(), entry_point.string());
                 if (!insert_ok) {
-                    issues.push_back(UnknownErrorIssue{.message = "Could not contruct module - this should not happen, and should be reported to the developers" });
+                    issues.push_back(issues::UnknownError{.message = "Could not contruct module - this should not happen, and should be reported to the developers" });
                     continue;
                 }
 
                 insert_it->second.module_root_object = res.get<sol::table>();
                 insert_it->second.state = std::move(lua); // fucky ownership
             } catch (std::exception& exc) {
-                issues.push_back(UnknownErrorIssue{.message = exc.what() });
+                issues.push_back(issues::UnknownError{.message = exc.what() });
             }
         }
-        std::cout << " === MODULE LOADING END === \n";
+        
+        // Do basic validation and processing
+        BasicValidation(issues);        
+
         return issues;
     }    
 };

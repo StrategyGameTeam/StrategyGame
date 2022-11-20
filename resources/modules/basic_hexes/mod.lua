@@ -1,8 +1,8 @@
 return {
     name = "basic_hexes",
 
-    alters_modules = {},
-    requires_modules = {},
+    altered_modules = {},
+    required_modules = {},
 
     declarations = {
         hexes = {

@@ -1,5 +1,5 @@
 return {
     name = "Grass",
-    model = "@models/dirt.glb",
-    produces = {}
+    model = "models/dirt.obj",
+    produces = { Gold = 1 }
 }

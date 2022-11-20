@@ -62,7 +62,7 @@ add_executable(
         src/hex.cpp
         src/input.cpp
         src/module.cpp
-        src/resource_store.cpp
+        src/resources.cpp
 )
 
 target_include_directories(

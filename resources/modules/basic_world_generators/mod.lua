@@ -57,9 +57,11 @@ perlin.noise = function(self, x, y, z)
   y = y or 0
   z = z or 0
 
-  local xi = math.floor(x) % 0x100
-  local yi = math.floor(y) % 0x100
-  local zi = math.floor(z) % 0x100
+  -- log(string.format("X: %d, Y: %d, Z: %d", x, y, z))
+
+  local xi = math.floor(x) % 256
+  local yi = math.floor(y) % 256
+  local zi = math.floor(z) % 256
 
   x = x - math.floor(x)
   y = y - math.floor(y)
@@ -118,24 +120,43 @@ setmetatable(perlin, {
     }, self)
   end
 })
+
+
 function returnMap(seed, width, height)
-  log("elo")
-  local TAU = 2 * 3.14159265358979323846
-  local nx = 0
+  local frequency = 4
+  local octave = 7
+  local amplitude = 128
+  local maxvalue = 0
+  local persistance = 0.5
+  local total = 0
+  local e = 7
   local p1 = perlin(seed)
   mt = {} -- create the matrix
   for i = 1, width do
     mt[i] = {} -- create a new row
     for j = 1, height do
-      nx = TAU * i
-      mt[i][j] = (p1:noise(i / width, j / height))
-      --mt[i][j] = (p1:noise(math.cos(nx)/TAU,j/100 - 0.5))
+      for o = 1, octave do
+        e = 1 * p1:noise((1.0 * i / width) * frequency, (1.0 * j / height) * frequency)
+            + 0.5 * p1:noise((2.0 * i / width) * frequency, (2.0 * j / height) * frequency)
+            + 0.25 * p1:noise((4.0 * i / width) * frequency, (4.0 * j / height) * frequency)
+        e = (e / (1.0 + 0.5 + 0.25)) * amplitude
+        total = total + e
+        maxvalue = maxvalue + amplitude
+        amplitude = amplitude * persistance
+        frequency = frequency * 2
+      end
+      mt[i][j] = total / maxvalue
+      frequency = 4
+      total = 0
+      maxvalue = 0
+      amplitude = 128
+
       if mt[i][j] > 0.3 then
         mt[i][j] = 1
-      elseif mt[i][j] > 0.1 then 
-        mt[i][j] = 2 
-      else 
-        mt[i][j] = 4 
+      elseif mt[i][j] > 0 then
+        mt[i][j] = 2
+      else
+        mt[i][j] = 4
       end
     end
   end
