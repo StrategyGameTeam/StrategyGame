@@ -8,11 +8,13 @@
 #include "module.hpp"
 #include "hex.hpp"
 #include "input.hpp"
+#include "connection.hpp"
 
 struct GameState {
     InputMgr inputMgr;
     bool debug = true;
     CylinderHexWorld<char> world = {100, 50, (char)0, (char)3};
+    Connection connection = {"127.0.0.1", 4242};
 };
 
 Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {

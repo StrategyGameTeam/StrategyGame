@@ -51,11 +51,18 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/raysan5/raylib.git
     GIT_TAG 4.2.0
 )
+FetchContent_Declare(
+    uvw
+    GIT_REPOSITORY https://github.com/skypjack/uvw.git
+)
 
 set(BUILD_EXAMPLES OFF)
+set(BUILD_UVW_LIBS ON)
 FetchContent_MakeAvailable(raylib)
 
 FetchContent_MakeAvailable(sol2)
+
+FetchContent_MakeAvailable(uvw)
 
 add_executable(
     stratgametest
@@ -63,6 +70,7 @@ add_executable(
         src/hex.cpp
         src/input.cpp
         src/module.cpp
+        src/connection.cpp
 )
 
 target_include_directories(
@@ -77,7 +85,19 @@ target_link_libraries(
         PRIVATE
         raylib
         sol2
+        uvw
         ${LUA_LIB_FILES}
+)
+
+add_executable(
+    server
+        server/main.cpp
+)
+
+target_link_libraries(
+    server
+        PRIVATE
+        uvw
 )
 
 add_custom_target(
