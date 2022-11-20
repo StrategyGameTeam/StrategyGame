@@ -7,9 +7,10 @@ namespace issues {
     struct MissingField { std::string what_module; std::string what_def; std::string fieldname; };
     struct InvalidFile { std::string what_module; std::string filepath; };
     struct InvalidKey { std::string what_module; std::string what_def; };
+    struct InvalidType { std::string what_module; std::string what_def; std::string what_field; sol::type what_type_wanted; sol::type what_type_provided; };
 }
 
-using ResourceIssues = std::variant<issues::MissingField, issues::InvalidFile, issues::InvalidKey>;
+using ResourceIssues = std::variant<issues::MissingField, issues::InvalidFile, issues::InvalidKey, issues::InvalidType>;
 
 struct ProductKind {
     std::string name;
@@ -25,7 +26,17 @@ struct HexKind {
 };
 
 struct WorldGen {
+    struct SeedOption { bool provided; size_t value; };
+    struct RangeOption { double from; double to; double step; double default_value; std::string description; };
+    struct SelectionOption { std::vector<std::string> options; size_t default_selection; std::string description; };
+    struct ToggleOption { std::string description; bool default_value; };
+    struct Option {
+        std::string name;
+        std::variant<SeedOption, RangeOption, SelectionOption, ToggleOption> value;
+    };
+
     std::string name;
+    std::vector<Option> options;
     sol::protected_function generator;
 };
 
@@ -49,8 +60,15 @@ struct ResourceStore {
 
     // Process loaded modules, load their stuff into memory, apply alterations, and optimize
     std::vector<ResourceIssues> LoadModuleResources(ModuleLoader& modl);
+    
     void LoadProducts(const Module& mod, std::vector<ResourceIssues>& issues);
     void LoadHexes(const Module& mod, std::vector<ResourceIssues>& issues);
+    void LoadWorldGen(const Module& mod, std::vector<ResourceIssues>& issues);
 
     int FindProductIndex (std::string name);
+    int FindHexIndex (std::string name);
+    int FindGeneratorIndex (std::string name);
+
+    // Inject things to get definitions
+    void InjectSymbols(sol::state& lua);
 };

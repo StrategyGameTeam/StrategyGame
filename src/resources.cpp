@@ -17,6 +17,7 @@ std::vector<ResourceIssues> ResourceStore::LoadModuleResources(ModuleLoader& ml)
     for(const auto& [_, mod] : ml.m_loaded_modules) {
         LoadProducts(mod, issues);
         LoadHexes(mod, issues);
+        LoadWorldGen(mod, issues);
     }
 
     return issues;
@@ -27,6 +28,16 @@ void ResourceStore::LoadProducts(const Module &mod, std::vector<ResourceIssues> 
     if (!prods.has_value()) return; // nothing to do, no products defined
     for(const auto& [_, rtab] : prods.value()) {
         ProductKind def;
+        if (rtab.get_type() != sol::type::table) {
+            issues.push_back(issues::InvalidType{
+                .what_module = mod.name_unsafe(),
+                .what_def = "Products",
+                .what_field = "N/A (root table of the product)",
+                .what_type_wanted = sol::type::table,
+                .what_type_provided = rtab.get_type()
+            });
+            continue;
+        }
         sol::table tab = rtab; 
         sol::optional<sol::string_view> name = tab["name"];
         sol::optional<sol::string_view> icon = tab["icon"];
@@ -57,6 +68,16 @@ void ResourceStore::LoadHexes(const Module &mod, std::vector<ResourceIssues> &is
     if (!hexes.has_value()) return; // nothing to do, no products defined
     for(const auto& [_, rtab] : hexes.value()) {
         HexKind def;
+        if (rtab.get_type() != sol::type::table) {
+            issues.push_back(issues::InvalidType{
+                .what_module = mod.name_unsafe(),
+                .what_def = "Hexes",
+                .what_field = "N/A (root table of the hex)",
+                .what_type_wanted = sol::type::table,
+                .what_type_provided = rtab.get_type()
+            });
+            continue;
+        }
         sol::table tab = rtab; 
         sol::optional<sol::string_view> name = tab["name"];
         sol::optional<sol::string_view> model = tab["model"];
@@ -92,6 +113,84 @@ void ResourceStore::LoadHexes(const Module &mod, std::vector<ResourceIssues> &is
                 def.produces.push_back({FindProductIndex(std::string(key.as<sol::string_view>())), value.as<int>()});
             }
         }
+
+        m_hex_table.push_back(def);
+    }
+}
+
+void ResourceStore::LoadWorldGen(const Module &mod, std::vector<ResourceIssues> &issues) {
+    using namespace sol;
+    
+    optional<table> wgens = mod.module_root_object["declarations"]["world_generators"];
+    if (!wgens.has_value()) return;
+    for(const auto& [_, rtab] : wgens.value()) {
+        WorldGen def;
+        if (rtab.get_type() != type::table) {
+            issues.push_back(issues::InvalidType{
+                .what_module = mod.name_unsafe(),
+                .what_def = "WorldGenerator",
+                .what_field = "N/A (root table of the world gen)",
+                .what_type_wanted = type::table,
+                .what_type_provided = rtab.get_type()
+            });
+            continue;
+        }
+        table gen = rtab;
+        optional<string_view> name = gen["name"];
+        optional<table> options = gen["options"];
+        optional<protected_function> generator = gen["generator"];
+
+        if (!name.has_value()) {
+            issues.push_back(issues::MissingField{.what_module = mod.name_unsafe(), .what_def = "world generators", .fieldname = "name"});
+            continue;
+        }
+        // options are optional
+        if (!generator.has_value()) {
+            issues.push_back(issues::MissingField{.what_module = mod.name_unsafe(), .what_def = "world generators", .fieldname = "generator"});
+            continue;
+        }
+
+        def.name = std::string(name.value());
+        def.generator = generator.value();
+        if (options.has_value()) {
+            // ! TODO: Finish this
+            for(const auto& [key, value] : options.value()) {
+                try {
+                    // this is rushed, but the whole system needs some good utils
+                    const string_view name = key.as<string_view>();
+                    table deets = value;
+                    const string_view typestring = deets["type"].get<string_view>();
+                    const string_view description = deets["description"].get<string_view>();
+                    if (typestring == "range") {
+                        std::string description;
+                        if (deets["description"].valid()) {
+                            description = std::string(deets["description"].get<string_view>());
+                        }
+
+                        def.options.emplace_back(WorldGen::Option{
+                            .name = std::string(name), 
+                            .value = WorldGen::RangeOption{
+                                .from = deets["from"].get<double>(),
+                                .to = deets["to"].get<double>(),
+                                .step = deets["to"].get_or(1.0),
+                                .default_value = deets["default_value"].get_or(deets["from"].get<double>()),
+                                .description = description
+                            }
+                        });
+                    } else if (typestring == "selection") {
+                        
+                    } else if (typestring == "toggle") {
+
+                    } else if (typestring == "seed") {
+
+                    }
+                } catch (std::exception& e) {
+                    continue;
+                }
+            }
+        }
+    
+        m_worldgens.push_back(def);
     }
 }
 
@@ -113,4 +212,31 @@ int ResourceStore::FindProductIndex(std::string name) {
 
     if (it == m_product_table.end()) return -1;
     return std::distance(m_product_table.begin(), it);    
+}
+
+int ResourceStore::FindHexIndex(std::string name) {
+    const auto it = std::ranges::find_if(m_hex_table, [&](const HexKind& hex) {
+        return hex.name == name;
+    });
+
+    if (it == m_hex_table.end()) return -1;
+    return std::distance(m_hex_table.begin(), it);
+}
+
+int ResourceStore::FindGeneratorIndex(std::string name) {
+    const auto it = std::ranges::find_if(m_worldgens, [&](const WorldGen& gen) {
+        return gen.name == name;
+    });
+
+    if (it == m_worldgens.end()) return -1;
+    return std::distance(m_worldgens.begin(), it);
+}
+
+void ResourceStore::InjectSymbols(sol::state &lua) {
+    using sol::as_function;
+
+    lua.create_named_table("Defs",
+        "getHex", as_function(&ResourceStore::FindHexIndex, this),
+        "getProduct", as_function(&ResourceStore::FindProductIndex, this)
+    );
 }

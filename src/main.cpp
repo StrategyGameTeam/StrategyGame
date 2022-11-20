@@ -13,9 +13,52 @@
 struct GameState {
     InputMgr inputMgr;
     bool debug = true;
-    CylinderHexWorld<char> world = {100, 50, (char)0, (char)3};
+    std::optional<CylinderHexWorld<int>> world;
     ResourceStore resourceStore;
     ModuleLoader moduleLoader;
+
+    void RunWorldgen(WorldGen& gen, std::unordered_map<std::string, std::variant<double, std::string, bool>> options) {
+        using sol::as_function;
+        (void)options;
+
+        auto& mod = moduleLoader.m_loaded_modules.at(gen.generator.lua_state());
+        int mode = 0; // AXIAL = 0, OFFSET = 1
+        auto map_table = mod.state.create_table_with(
+            "AXIAL", 0,
+            "OFFSET", 1,
+            "setSize", [&](int w, int h) { this->world = CylinderHexWorld<int>(w, h, 1, 0); },
+            "setTileCoords", [&](int m) { mode = m; },
+            "setTileAt", [&](int x, int y, int tileid) {
+                HexCoords where;
+                if (mode == 0) {
+                    where = HexCoords::from_axial(x, y);
+                } else {
+                    where = HexCoords::from_offset(x, y);
+                }
+                if (this->world.has_value()) {
+                    try {
+                        this->world.value().at_ref_normalized(where) = tileid;
+                    } catch (std::exception& e) {
+                        std::cerr << "setTileAt crashed : " << e.what() << '\n';
+                        return;
+                    }
+                } else {
+                    puts("Set the size before setting the data");
+                }
+            }
+        );
+        auto options_table = mod.state.create_table();
+        try {
+            auto res = gen.generator.call(map_table, options_table);
+            if (res.status() != sol::call_status::ok) {
+                std::cerr << "Failed to run the world gen. Status = " << static_cast<int>(res.status()) << '\n';
+                std::cerr << "Stack top: " << res.get<sol::string_view>() << '\n';
+                abort();
+            }
+        } catch (std::exception& e) {
+            std::cerr << "World Gen failed: " << e.what() << '\n';
+        }
+    };
 };
 
 Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
@@ -40,16 +83,8 @@ void raylib_simple_example(GameState &gs) {
     gs.inputMgr.registerAction({"Test Left",[&]{camera.position.x -= 1;camera.target.x -= 1;}}, {KEY_LEFT,{}});
     gs.inputMgr.registerAction({"Test Right",[&]{camera.position.x += 1;camera.target.x += 1; }}, {KEY_RIGHT,{}});
 
-    std::array<Model, 5> hex_models = {{
-        LoadModel("resources/hexes/grass_forest.obj"),
-        LoadModel("resources/hexes/grass_hill.obj"),
-        LoadModel("resources/hexes/grass.obj"),
-        LoadModel("resources/hexes/stone.obj"),
-        LoadModel("resources/hexes/water.obj")
-    }};
-
     // this should be done per model, but for now, we don't even have a proper tile type, so it's fine
-    const auto model_bb = GetModelBoundingBox(hex_models.at(0));
+    const auto model_bb = GetModelBoundingBox(gs.resourceStore.m_hex_table.at(0).model);
     const auto model_size = Vector3Subtract(model_bb.max, model_bb.min);
     const float scale = 2.0f / std::max({model_size.x, model_size.y, model_size.z});
     
@@ -57,6 +92,10 @@ void raylib_simple_example(GameState &gs) {
     Vector3 mouse_grab_point;
 
     while(!WindowShouldClose()) {
+        if (!gs.world.has_value()) {
+            std::cout << "World has no value at the start\n";
+        }
+
         const auto frame_start = std::chrono::steady_clock::now();
         // for some reason, dragging around is unstable
         // i know, that the logical cursor is slightly delayed, but still, it should be delayed
@@ -82,7 +121,7 @@ void raylib_simple_example(GameState &gs) {
         const auto bottom_right = intersect_with_ground_plane(GetMouseRay({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera), 0.0f);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-            if (auto hx = gs.world.at_ref_abnormal(hovered_coords)) {
+            if (auto hx = gs.world.value().at_ref_abnormal(hovered_coords)) {
                 hx.value().get() = (hx.value().get() + 1) % 4;
             }
         }
@@ -96,7 +135,7 @@ void raylib_simple_example(GameState &gs) {
 
         const auto light_logic_end = std::chrono::steady_clock::now();
 
-        const auto to_render = gs.world.all_within_unscaled_quad(
+        const auto to_render = gs.world.value().all_within_unscaled_quad(
             {top_left.x, top_left.z},    
             {top_right.x, top_right.z},    
             {bottom_left.x, bottom_left.z},    
@@ -112,14 +151,13 @@ void raylib_simple_example(GameState &gs) {
             {
                 DrawGrid(10, 1.0f);
                 for(const auto coords : to_render) {
-                    auto hx = gs.world.at(coords);
+                    auto hx = gs.world.value().at(coords);
                     auto tint = WHITE;
                     if (coords == hovered_coords) {
                         tint = BLUE;
                     }
                     const auto [tx, ty] = coords.to_world_unscaled();
-                    assert(hx <= 4);
-                    DrawModelEx(hex_models.at(hx), Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
+                    DrawModelEx(gs.resourceStore.m_hex_table.at(hx).model, Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
                 }
             }
             EndMode3D();
@@ -136,7 +174,11 @@ void raylib_simple_example(GameState &gs) {
         const auto rendering_time = (rendering_end - rendering_start).count();
         const auto vis_test = (rendering_start - light_logic_end).count();
 
-        std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
+        (void)total_time;
+        (void)rendering_time;
+        (void)vis_test;
+
+        // std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
     }
 }
 
@@ -145,7 +187,6 @@ int main () {
     InitWindow(640, 480, "Strategy game");
     SetTargetFPS(60);
     try {
-
         GameState gs;
         const auto cwd = std::filesystem::current_path();
         
@@ -177,7 +218,7 @@ int main () {
             }, issue);
         };
 
-        for(const auto& issue : gs.moduleLoader.LoadModules(module_load_candidates, gs.inputMgr, gs.world)) {
+        for(const auto& issue : gs.moduleLoader.LoadModules(module_load_candidates, gs.inputMgr, gs.resourceStore)) {
             deal_with_an_issue(issue);
         }
         if (any_issues_critical) {
@@ -191,8 +232,17 @@ int main () {
             return 0;
         }
 
+        auto def_gen_id = gs.resourceStore.FindGeneratorIndex("default");
+        if (def_gen_id == -1) {
+            puts("No world generator found, abroting");
+            abort();
+        }
+        puts("BEFORE WORLDGEN");
+        auto& def_gen = gs.resourceStore.m_worldgens.at(def_gen_id);
+        puts("JUST BEFORE WORLDGEN");
+        gs.RunWorldgen(def_gen, {});
+        puts("AFTER WORLDGEN");
         raylib_simple_example(gs);
-
     } catch (std::exception& e) {
         std::cerr << e.what() << '\n';
     }

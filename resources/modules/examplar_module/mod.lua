@@ -25,18 +25,18 @@ local proper_module_root = {
         world_generators = {
             {
                 name = "Test generator",
-                variables = {
-                    width = { type = "intrange", from = 50, to = 1000 },
-                    height = { type = "intrange", from = 50, to = 1000 },
+                options = {
+                    width = { type = "range", from = 50, to = 1000 },
+                    height = { type = "range", from = 50, to = 1000 },
                     complexity = { type = "range", from = 0.1, to = 2.0, step = 0.1},
                     temperature = { type = "selection", options = {"Hot", "Warm", "Mild", "Cold", "Freezing"} },
                     generate_rivers = { type = "toggle" }
                 },
-                generator = function (Game, Map, Options)
+                generator = function (Map, Options)
                     Map.setSize(Options.width, Options.height)
                     Map.setTileCoords(Map.OFFSET)
                     -- or Map.setTileCoords(Map.AXIAL)
-                    Map.setTileAt(0, 0, Game.Defs.getHex("Test hex"))
+                    Map.setTileAt(0, 0, Defs.getHex("Test hex"))
                     -- and so on
                 end
             }

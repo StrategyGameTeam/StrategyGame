@@ -6,7 +6,12 @@ return {
 
     declarations = {
         hexes = {
-            require("hexes/grass")
+            require("hexes/water"),
+            require("hexes/grass"),
+            require("hexes/dirt"),
+            require("hexes/sand"),
+            require("hexes/sand_rocks"),
+            require("hexes/stone")
         }
     }
 }
