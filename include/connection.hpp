@@ -13,5 +13,7 @@ struct Connection{
     void onError(const uvw::ErrorEvent &);
     void onData(const uvw::DataEvent &);
     void onClose(const uvw::CloseEvent &);
+    void onConnected(const uvw::ConnectEvent &evt);
     void write(char*, unsigned int);
+
 };

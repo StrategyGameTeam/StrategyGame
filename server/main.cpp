@@ -11,7 +11,7 @@ int main() {
     auto loop = uvw::Loop::getDefault();
     std::shared_ptr<uvw::TCPHandle> tcp = loop->resource<uvw::TCPHandle>();
 
-    tcp->once<uvw::ListenEvent>([](const uvw::ListenEvent &, uvw::TCPHandle &srv) {
+    tcp->on<uvw::ListenEvent>([](const uvw::ListenEvent &, uvw::TCPHandle &srv) {
         acceptClient(srv);
     });
 
@@ -27,10 +27,11 @@ void acceptClient(uvw::TCPHandle &srv) {
 
     //Listeners
     client->on<uvw::EndEvent>([](const uvw::EndEvent &, uvw::TCPHandle &client) {
+        std::cout << "[" << client.peer().ip << "]" << " disconnected " << std::endl;
         client.close();
     });
     client->on<uvw::DataEvent>([](const uvw::DataEvent &evt, uvw::TCPHandle &client) {
-        std::cout << "[" << client.peer().ip << "]" << "Data reveived: " << evt.data << std::endl;
+        std::cout << "[" << client.peer().ip << "]" << " Data reveived: " << evt.data << std::endl;
     });
 
     //Accept client
