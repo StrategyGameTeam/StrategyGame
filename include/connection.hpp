@@ -1,11 +1,13 @@
 #pragma once
 #include <uvw.hpp>
+#include <thread>
 
 struct Connection{
     std::string m_addr;
     unsigned int m_port;
     std::shared_ptr<uvw::Loop> m_loop;
     std::shared_ptr<uvw::TCPHandle> m_tcp;
+    std::thread m_read_thread;
 
     Connection(const std::string &, unsigned int);
     ~Connection();

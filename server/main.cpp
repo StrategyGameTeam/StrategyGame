@@ -2,10 +2,11 @@
 #include <memory>
 #include <iostream>
 
-constexpr const char* addr = "127.0.0.1";
+constexpr const char *addr = "127.0.0.1";
 constexpr const int port = 4242;
 
 void acceptClient(uvw::TCPHandle &srv);
+void broadcast(uvw::Loop &loop, char* data, unsigned int len);
 
 int main() {
     auto loop = uvw::Loop::getDefault();
@@ -32,10 +33,20 @@ void acceptClient(uvw::TCPHandle &srv) {
     });
     client->on<uvw::DataEvent>([](const uvw::DataEvent &evt, uvw::TCPHandle &client) {
         std::cout << "[" << client.peer().ip << "]" << " Data reveived: " << evt.data << std::endl;
+        broadcast(client.loop(), evt.data.get(), evt.length);
     });
 
     //Accept client
     srv.accept(*client);
     std::cout << "Client conntected: " << client->peer().ip << std::endl;
     client->read();
+}
+
+void broadcast(uvw::Loop &loop, char* data, unsigned int len){
+    loop.walk(uvw::Overloaded{
+            [&](uvw::TCPHandle &h) {
+                if (h.peer().port > 0) h.write(data, len);
+            },
+            [](auto &&) {}
+    });
 }
