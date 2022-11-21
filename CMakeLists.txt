@@ -54,6 +54,7 @@ FetchContent_Declare(
 FetchContent_Declare(
     uvw
     GIT_REPOSITORY https://github.com/skypjack/uvw.git
+    GIT_TAG v2.12.1_libuv_v1.44
 )
 
 set(BUILD_EXAMPLES OFF)

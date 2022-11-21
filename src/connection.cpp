@@ -49,7 +49,8 @@ void Connection::onData(const uvw::DataEvent &evt) {
 
 void Connection::onConnected(const uvw::ConnectEvent &evt) {
     std::cout << "Connected to: " << this->m_addr << ":" << this->m_port << std::endl;
-    write(new char[]{'a', 'b'}, 2);
+    auto msg = std::string("ab");
+    write(msg.data(), msg.size());
 }
 
 void Connection::write(char *data, unsigned int len) {

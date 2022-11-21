@@ -27,12 +27,13 @@ void acceptClient(uvw::TCPHandle &srv) {
     auto client = srv.loop().resource<uvw::TCPHandle>();
 
     //Listeners
-    client->on<uvw::EndEvent>([](const uvw::EndEvent &, uvw::TCPHandle &client) {
+    client->on<uvw::CloseEvent>([](const uvw::CloseEvent &, uvw::TCPHandle &client) {
         std::cout << "[" << client.peer().ip << "]" << " disconnected " << std::endl;
         client.close();
     });
     client->on<uvw::DataEvent>([](const uvw::DataEvent &evt, uvw::TCPHandle &client) {
-        std::cout << "[" << client.peer().ip << "]" << " Data reveived: " << evt.data << std::endl;
+        std::cout << "[" << client.peer().ip << "]" << " Data reveived: ";
+        std::cout.write(evt.data.get(), evt.length); // data is not a cstr, dont treat it as such
         broadcast(client.loop(), evt.data.get(), evt.length);
     });
 

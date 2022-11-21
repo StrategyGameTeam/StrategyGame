@@ -8,7 +8,13 @@
 #include "module.hpp"
 #include "hex.hpp"
 #include "input.hpp"
+
+#define NOGDI
+#define NODRAWTEXT
+#define NOOPENFILE
+#define NOUSER
 #include "connection.hpp"
+#undef max
 
 struct GameState {
     InputMgr inputMgr;
@@ -138,7 +144,7 @@ void raylib_simple_example(GameState &gs) {
         const auto rendering_time = (rendering_end - rendering_start).count();
         const auto vis_test = (rendering_start - light_logic_end).count();
 
-        std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
+        // std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
     }
     CloseWindow();
 }
