@@ -3,10 +3,11 @@
 
 void UiInput::handleKeyboard() {
     auto key = GetKeyPressed();
+    auto charPressed = GetCharPressed();
     if (key == KEY_BACKSPACE) {
         text = text.substr(0, text.size() - 1);
-    } else if (key != KEY_NULL) {
-        this->text += char(key);
+    } else if (charPressed != KEY_NULL) {
+        this->text += char(charPressed);
     }
     if (this->submit_handler && key == KEY_ENTER){
         if (this->submit_handler(text)) {

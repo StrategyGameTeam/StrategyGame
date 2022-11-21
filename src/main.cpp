@@ -24,6 +24,12 @@ struct GameState {
     Connection connection = {"127.0.0.1", 4242};
 };
 
+struct ChatMessage {
+    std::string msg;
+    std::chrono::system_clock::time_point tp;
+};
+
+
 Vector3 intersect_with_ground_plane(const Ray ray, float plane_height) {
     const auto moveunit = (plane_height - ray.position.y) / ray.direction.y;
     const auto intersection_point = Vector3Add(ray.position, Vector3Scale(ray.direction, moveunit));
@@ -61,6 +67,12 @@ void raylib_simple_example(GameState &gs) {
         gs.connection.write(text.data(), text.size());
         return true;
     }});
+    std::vector<ChatMessage> chat_messages;
+    gs.connection.packet_handler = [&](char* data, int len){
+        chat_messages.push_back({
+            std::string(data, len), std::chrono::system_clock::now()
+        });
+    };
 
     // this should be done per model, but for now, we don't even have a proper tile type, so it's fine
     const auto model_bb = GetModelBoundingBox(hex_models.at(0));
@@ -160,6 +172,17 @@ void raylib_simple_example(GameState &gs) {
             }
             for (const auto &item: ui_elements) {
                 item.render();
+            }
+
+            int posY = 420;
+            for(int i = chat_messages.size()-1; i>=0; i--){
+                auto now = std::chrono::system_clock::now();
+                auto dur = now - chat_messages[i].tp;
+                if(std::chrono::duration_cast<std::chrono::seconds>(dur).count() > 5){
+                    break;
+                }
+                DrawText(chat_messages[i].msg.data(), 5, posY, 18, {0,0,0,255});
+                posY -= 20;
             }
         }
         EndDrawing();

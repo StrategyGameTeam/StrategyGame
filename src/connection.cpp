@@ -45,6 +45,12 @@ void Connection::onClose(const uvw::CloseEvent &evt) {
 
 void Connection::onData(const uvw::DataEvent &evt) {
     std::cout << "Received data: " << evt.data << std::endl;
+    /*auto packet_id = std::string_view(evt.data.get(), 16);
+    auto packet_data = std::string_view(evt.data.get() + 16, evt.length - 16);
+    if(packet_id == "chat"){
+
+    }*/
+    packet_handler(evt.data.get(), evt.length);
 }
 
 void Connection::onConnected(const uvw::ConnectEvent &evt) {
