@@ -8,7 +8,13 @@
 #include "module.hpp"
 #include "hex.hpp"
 #include "input.hpp"
+
+#define NOGDI
+#define NODRAWTEXT
+#define NOOPENFILE
+#define NOUSER
 #include "connection.hpp"
+#undef max
 #include "ui_input.hpp"
 
 struct GameState {
