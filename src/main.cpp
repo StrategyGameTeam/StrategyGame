@@ -58,7 +58,7 @@ void raylib_simple_example(GameState &gs) {
     //todo: replace with proper ui element management
     std::vector<UiInput> ui_elements;
     ui_elements.push_back({0, 440, 200, 40, [&](std::string &text){
-        gs.connection.write(const_cast<char *>(text.c_str()), text.size() + 1);
+        gs.connection.write(text.data(), text.size());
         return true;
     }});
 
