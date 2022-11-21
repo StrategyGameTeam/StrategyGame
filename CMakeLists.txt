@@ -71,6 +71,7 @@ add_executable(
         src/input.cpp
         src/module.cpp
         src/connection.cpp
+        src/ui_input.cpp
 )
 
 target_include_directories(

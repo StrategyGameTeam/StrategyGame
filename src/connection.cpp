@@ -22,7 +22,6 @@ Connection::Connection(const std::string &addr, unsigned int port) {
     });
 
 
-    this->m_tcp->keepAlive(true, {std::chrono::seconds(1)});
     this->m_tcp->connect(this->m_addr, this->m_port);
     this->m_read_thread = std::thread([&]() {
         this->m_tcp->read();
@@ -31,6 +30,7 @@ Connection::Connection(const std::string &addr, unsigned int port) {
 }
 
 Connection::~Connection() {
+    this->m_loop->stop();
     this->m_tcp->close();
     this->m_loop->close();
 }
@@ -49,7 +49,6 @@ void Connection::onData(const uvw::DataEvent &evt) {
 
 void Connection::onConnected(const uvw::ConnectEvent &evt) {
     std::cout << "Connected to: " << this->m_addr << ":" << this->m_port << std::endl;
-    write(new char[]{'a', 'b'}, 2);
 }
 
 void Connection::write(char *data, unsigned int len) {

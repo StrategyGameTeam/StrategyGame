@@ -9,6 +9,7 @@
 #include "hex.hpp"
 #include "input.hpp"
 #include "connection.hpp"
+#include "ui_input.hpp"
 
 struct GameState {
     InputMgr inputMgr;
@@ -17,8 +18,8 @@ struct GameState {
     Connection connection = {"127.0.0.1", 4242};
 };
 
-Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
-    const auto moveunit = (plane_height-ray.position.y) / ray.direction.y;
+Vector3 intersect_with_ground_plane(const Ray ray, float plane_height) {
+    const auto moveunit = (plane_height - ray.position.y) / ray.direction.y;
     const auto intersection_point = Vector3Add(ray.position, Vector3Scale(ray.direction, moveunit));
     return intersection_point;
 }
@@ -48,6 +49,13 @@ void raylib_simple_example(GameState &gs) {
         LoadModel("resources/hexes/water.obj")
     }};
 
+    //todo: replace with proper ui element management
+    std::vector<UiInput> ui_elements;
+    ui_elements.push_back({0, 440, 200, 40, [&](std::string &text){
+        gs.connection.write(const_cast<char *>(text.c_str()), text.size() + 1);
+        return true;
+    }});
+
     // this should be done per model, but for now, we don't even have a proper tile type, so it's fine
     const auto model_bb = GetModelBoundingBox(hex_models.at(0));
     const auto model_size = Vector3Subtract(model_bb.max, model_bb.min);
@@ -62,10 +70,15 @@ void raylib_simple_example(GameState &gs) {
         // i know, that the logical cursor is slightly delayed, but still, it should be delayed
         // equally for all of the frame. The exact pointthat is selected will be slightly changing,
         // i very much doubt it's because of float rounding. for the future to solve
-        const auto mouse_ray = GetMouseRay(GetMousePosition(), camera);
+        const auto mouse_position = GetMousePosition();
+        const auto mouse_ray = GetMouseRay(mouse_position, camera);
         const auto mouse_on_ground = intersect_with_ground_plane(mouse_ray, 0.2f);
         const auto hovered_coords = HexCoords::from_world_unscaled(mouse_on_ground.x, mouse_on_ground.z);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            for (auto &item: ui_elements) {
+                item.is_active = item.x <= mouse_position.x && item.x + item.w >= mouse_position.x &&
+                                 item.y <= mouse_position.y && item.y + item.h >= mouse_position.y;
+            }
             mouse_grab_point = mouse_on_ground;
         }
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
@@ -94,7 +107,16 @@ void raylib_simple_example(GameState &gs) {
         Vector3 direction = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
         camera.position = Vector3Add(camera.position, Vector3Scale(direction, scroll));
 
-        gs.inputMgr.handleKeyboard();
+        bool keyboard_handled = false;
+        for (auto &item: ui_elements){
+            if(item.is_active){
+                item.handleKeyboard();
+                keyboard_handled = true;
+            }
+        }
+        if (!keyboard_handled) {
+            gs.inputMgr.handleKeyboard();
+        }
 
         const auto light_logic_end = std::chrono::steady_clock::now();
 
@@ -121,13 +143,17 @@ void raylib_simple_example(GameState &gs) {
                     }
                     const auto [tx, ty] = coords.to_world_unscaled();
                     assert(hx <= 4);
-                    DrawModelEx(hex_models.at(hx), Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
+                    DrawModelEx(hex_models.at(hx), Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0,
+                                Vector3{scale, scale, scale}, tint);
                 }
             }
             EndMode3D();
             if (gs.debug) {
                 DrawFPS(10, 10);
                 DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
+            }
+            for (const auto &item: ui_elements) {
+                item.render();
             }
         }
         EndDrawing();
