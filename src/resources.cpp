@@ -1,13 +1,21 @@
 #include "resources.hpp"
+#include "utils.hpp"
 
 ResourceStore::~ResourceStore() {
+    log::debug("UNLOADING RESOURCES");
+
+    log::debug("UNLOADING TEXTURES");
     for(auto& def : m_product_table) {
         UnloadTexture(def.texture);
+        UnloadImage(def.image);
     }
 
+    log::debug("UNLOADING MODELS");
     for(auto& def : m_hex_table) {
         UnloadModel(def.model);
     }
+
+    log::debug("UNLOADING DONE");
 }
 
 std::vector<ResourceIssues> ResourceStore::LoadModuleResources(ModuleLoader& ml) {

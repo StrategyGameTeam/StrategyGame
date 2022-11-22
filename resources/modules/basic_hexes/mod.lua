@@ -11,7 +11,8 @@ return {
             require("hexes/dirt"),
             require("hexes/sand"),
             require("hexes/sand_rocks"),
-            require("hexes/stone")
+            require("hexes/stone"),
+            require("hexes/mountain")
         }
     }
 }

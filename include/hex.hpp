@@ -20,6 +20,7 @@ So, for example:
 
 struct HexCoords;
 struct EdgeCoords;
+struct HexData;
 
 // Operators to get offsets from a cell. They are Left and Right combined with Up, Down, or just
 HexCoords operator "" _LU (unsigned long long x);
@@ -71,6 +72,11 @@ struct HexCoords {
     static HexCoords from_world_unscaled(float x, float y);
     static std::vector<HexCoords> make_line(const HexCoords from, const HexCoords to);
     static HexCoords from_offset(int col, int row);
+};
+
+struct HexData {
+    int tileid;
+    int_least32_t visibility_flags;
 };
 
 struct EdgeCoords {

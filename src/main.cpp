@@ -5,6 +5,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include <sol/sol.hpp>
+#include "utils.hpp"
 #include "module.hpp"
 #include "hex.hpp"
 #include "input.hpp"
@@ -31,9 +32,9 @@ struct GameState {
             "setTileAt", [&](int x, int y, int tileid) {
                 HexCoords where;
                 if (mode == 0) {
-                    where = HexCoords::from_axial(x, y);
+                    where = HexCoords::from_axial(x-1, y-1);
                 } else {
-                    where = HexCoords::from_offset(x, y);
+                    where = HexCoords::from_offset(x-1, y-1);
                 }
                 if (this->world.has_value()) {
                     try {
@@ -43,7 +44,7 @@ struct GameState {
                         return;
                     }
                 } else {
-                    puts("Set the size before setting the data");
+                    log::debug("Set the size before setting the data");
                 }
             }
         );
@@ -93,7 +94,8 @@ void raylib_simple_example(GameState &gs) {
 
     while(!WindowShouldClose()) {
         if (!gs.world.has_value()) {
-            std::cout << "World has no value at the start\n";
+            log::error("World has no value at the start\n");
+            break;
         }
 
         const auto frame_start = std::chrono::steady_clock::now();
@@ -164,6 +166,8 @@ void raylib_simple_example(GameState &gs) {
             if (gs.debug) {
                 DrawFPS(10, 10);
                 DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
+                const auto hovered_tile = gs.world.value().at(hovered_coords);
+                DrawText(gs.resourceStore.m_hex_table.at(hovered_tile).name.c_str(), 10, 50, 20, BLACK);
             }
         }
         EndDrawing();
@@ -183,6 +187,7 @@ void raylib_simple_example(GameState &gs) {
 }
 
 int main () {
+    try {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(640, 480, "Strategy game");
     SetTargetFPS(60);
@@ -234,17 +239,24 @@ int main () {
 
         auto def_gen_id = gs.resourceStore.FindGeneratorIndex("default");
         if (def_gen_id == -1) {
-            puts("No world generator found, abroting");
+            log::debug("No world generator found, abroting");
             abort();
         }
-        puts("BEFORE WORLDGEN");
+        log::debug("BEFORE WORLDGEN");
         auto& def_gen = gs.resourceStore.m_worldgens.at(def_gen_id);
-        puts("JUST BEFORE WORLDGEN");
+        log::debug("JUST BEFORE WORLDGEN");
         gs.RunWorldgen(def_gen, {});
-        puts("AFTER WORLDGEN");
+        log::debug("AFTER WORLDGEN");
         raylib_simple_example(gs);
     } catch (std::exception& e) {
         std::cerr << e.what() << '\n';
+        return -1;
     }
     CloseWindow();
+    log::debug("CLOSED WINDOW");
+    }
+    catch (std::exception& e) {
+        std::cerr << "The whole of main crashed: " << e.what() << std::endl;
+        return -1;
+    }
 }

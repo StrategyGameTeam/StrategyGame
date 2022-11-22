@@ -1,4 +1,9 @@
 #include "module.hpp"
+#include "utils.hpp"
+
+ModuleLoader::~ModuleLoader() {
+    log::debug("MODULE LOADER DESCTUCTOR");
+}
 
 void ModuleLoader::InjectSymbols(sol::state& lua) {
     using sol::as_function;

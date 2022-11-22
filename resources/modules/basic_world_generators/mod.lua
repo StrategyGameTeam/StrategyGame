@@ -126,7 +126,7 @@ Tau = 2 * math.pi
 
 function CalcOctave(frequency, x, y, width, height, p1)
   x = (x / width) * Tau * frequency
-  return p1:noise(math.cos(x) / Tau, math.sin(x) / Tau, y / height)
+  return p1:noise(math.cos(x) / Tau, math.sin(x) / Tau, (y / height) * frequency)
 end
 
 return {
@@ -136,8 +136,10 @@ return {
       {
         name = "default",
         generator = function(Map, Options)
-          local width = 100
-          local height = 100
+          math.randomseed(os.time())
+          
+          local width = 128
+          local height = 128
 
           Map.setSize(width, height)
           Map.setTileCoords(Map.OFFSET)
@@ -148,15 +150,17 @@ return {
           local sand = Defs.getHex("Sand")
           local sandrocks = Defs.getHex("SandRocks")
           local dirt = Defs.getHex("Dirt")
+          local mountain = Defs.getHex("Mountain")
 
-          local frequency = 0.25
-          local octave = 20
-          local amplitude = 64
+          local biomeHeight = height / 7
+          local frequency = 1
+          local octave = 8
+          local amplitude = 128
           local maxvalue = 0
           local persistance = 0.5
           local total = 0
           local e = 0
-          local p1 = perlin(1337)
+          local p1 = perlin(13)
           mt = {} -- create the matrix
           for i = 1, width do
             mt[i] = {} -- create a new row
@@ -170,15 +174,21 @@ return {
                 frequency = frequency * 2
               end
               mt[i][j] = total / maxvalue
-              frequency = 4
+              frequency = 1
               total = 0
               maxvalue = 0
               amplitude = 128
 
-              if mt[i][j] > 0.3 then
-                Map.setTileAt(i, j, grass);
-              elseif mt[i][j] > 0 then
-                Map.setTileAt(i, j, grass);
+              if mt[i][j] > 0.15 then
+                Map.setTileAt(i, j, mountain);
+              elseif mt[i][j] > -0.05 then
+                if j < biomeHeight or j > 6 * biomeHeight then
+                  Map.setTileAt(i, j, stone)
+                elseif (j < biomeHeight * 3 - math.sin(i / 35 + math.cos(i / 15))*7 and j > biomeHeight * 2 + math.sin(i / 40 + math.cos(i / 20))*10) or (j < biomeHeight * 5 - math.sin(i / 50 + math.cos(i / 30))*5 and j > biomeHeight * 4 + math.sin(i / 30 + math.cos(i / 80))*12) then
+                  Map.setTileAt(i, j, sand)
+                else
+                  Map.setTileAt(i, j, grass)
+                end
               else
                 Map.setTileAt(i, j, water);
               end

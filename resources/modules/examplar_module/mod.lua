@@ -17,7 +17,7 @@ local proper_module_root = {
                 name = "Test hex", 
                 model = "/path/to/model/relative/to/module/root",
                 description = "This place contains ancient doom, only know to the most ancient of devs",
-                products = { 
+                products = {
                     Testanium = 3
                 }
             }

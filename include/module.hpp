@@ -57,6 +57,7 @@ struct ModuleLoader {
 
     // module loader should not me mobile in memory - make one, and reference to it
     ModuleLoader() = default;
+    ~ModuleLoader();
     ModuleLoader(const ModuleLoader&) = delete;
     ModuleLoader(ModuleLoader&&) = delete;
     ModuleLoader& operator= (const ModuleLoader&) = delete;
@@ -89,7 +90,7 @@ struct ModuleLoader {
         // Load and run Lua
         for(const auto& modpath : module_paths) {
             try {
-                std::cout << "Starting to load " << modpath.string() << '\n';
+                log::info("Starting to load ", modpath.string());
                 const auto entry_point = modpath / "mod.lua";
                 if (!std::filesystem::is_regular_file(entry_point)) {
                     issues.push_back(issues::InvalidPath{.path = entry_point.string() });
@@ -99,7 +100,7 @@ struct ModuleLoader {
                 sol::state lua;
             
                 // load parts of standard lua library
-                lua.open_libraries(sol::lib::base, sol::lib::jit, sol::lib::string, sol::lib::package, sol::lib::math, sol::lib::table);
+                lua.open_libraries(sol::lib::base, sol::lib::jit, sol::lib::string, sol::lib::package, sol::lib::math, sol::lib::table, sol::lib::os);
                 // load custom stuff
                 LoadLuaTRec(lua, *this, extentions...);
                 
