@@ -57,9 +57,11 @@ perlin.noise = function(self, x, y, z)
   y = y or 0
   z = z or 0
 
-  local xi = math.floor(x) % 0x100
-  local yi = math.floor(y) % 0x100
-  local zi = math.floor(z) % 0x100
+  -- log(string.format("X: %d, Y: %d, Z: %d", x, y, z))
+
+  local xi = math.floor(x) % 256
+  local yi = math.floor(y) % 256
+  local zi = math.floor(z) % 256
 
   x = x - math.floor(x)
   y = y - math.floor(y)
@@ -118,43 +120,82 @@ setmetatable(perlin, {
     }, self)
   end
 })
-function returnMap(seed, width, height)
-  log("elo")
-  local TAU = 2 * 3.14159265358979323846
-  local nx = 0
-  local p1 = perlin(seed)
-  mt = {} -- create the matrix
-  for i = 1, width do
-    mt[i] = {} -- create a new row
-    for j = 1, height do
-      nx = TAU * i
-      mt[i][j] = (p1:noise(i / width, j / height))
-      --mt[i][j] = (p1:noise(math.cos(nx)/TAU,j/100 - 0.5))
-      if mt[i][j] > 0.3 then
-        mt[i][j] = 1
-      elseif mt[i][j] > 0.1 then 
-        mt[i][j] = 2 
-      else 
-        mt[i][j] = 4 
-      end
-    end
-  end
 
-  return mt
+
+Tau = 2 * math.pi
+
+function CalcOctave(frequency, x, y, width, height, p1)
+  x = (x / width) * Tau * frequency
+  return p1:noise(math.cos(x) / Tau, math.sin(x) / Tau, (y / height) * frequency)
 end
 
-DEV_MapGenerator(returnMap)
+return {
+  name = "basic_world_generators",
+  declarations = {
+    world_generators = {
+      {
+        name = "default",
+        generator = function(Map, Options)
+          math.randomseed(os.time())
+          
+          local width = 128
+          local height = 128
 
+          Map.setSize(width, height)
+          Map.setTileCoords(Map.OFFSET)
 
+          local grass = Defs.getHex("Grass")
+          local stone = Defs.getHex("Stone")
+          local water = Defs.getHex("Water")
+          local sand = Defs.getHex("Sand")
+          local sandrocks = Defs.getHex("SandRocks")
+          local dirt = Defs.getHex("Dirt")
+          local mountain = Defs.getHex("Mountain")
 
---local p2 = perlin(1235)
+          local biomeHeight = height / 7
+          local frequency = 1
+          local octave = 8
+          local amplitude = 128
+          local maxvalue = 0
+          local persistance = 0.5
+          local total = 0
+          local e = 0
+          local p1 = perlin(13)
+          mt = {} -- create the matrix
+          for i = 1, width do
+            mt[i] = {} -- create a new row
+            for j = 1, height do
+              for o = 1, octave do
+                e = CalcOctave(frequency, i, j, width, height, p1)
+                e = e * amplitude
+                total = total + e
+                maxvalue = maxvalue + amplitude
+                amplitude = amplitude * persistance
+                frequency = frequency * 2
+              end
+              mt[i][j] = total / maxvalue
+              frequency = 1
+              total = 0
+              maxvalue = 0
+              amplitude = 128
 
---for i=1,100 do
---for j=1,100 do
--- nx= TAU * i
---    if mt[i][j] == 1 then
---    mt[i][j] = --(p2:noise(math.cos(nx)/TAU,j/100 - 0.5))
---    (p2:noise(i/100 - 0.5,j/100 - 0.5))
---    end
---end
---end
+              if mt[i][j] > 0.15 then
+                Map.setTileAt(i, j, mountain);
+              elseif mt[i][j] > -0.05 then
+                if j < biomeHeight or j > 6 * biomeHeight then
+                  Map.setTileAt(i, j, stone)
+                elseif (j < biomeHeight * 3 - math.sin(i / 35 + math.cos(i / 15))*7 and j > biomeHeight * 2 + math.sin(i / 40 + math.cos(i / 20))*10) or (j < biomeHeight * 5 - math.sin(i / 50 + math.cos(i / 30))*5 and j > biomeHeight * 4 + math.sin(i / 30 + math.cos(i / 80))*12) then
+                  Map.setTileAt(i, j, sand)
+                else
+                  Map.setTileAt(i, j, grass)
+                end
+              else
+                Map.setTileAt(i, j, water);
+              end
+            end
+          end
+        end
+      }
+    }
+  }
+}

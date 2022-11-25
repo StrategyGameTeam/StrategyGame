@@ -25,7 +25,6 @@ else()
     message(FATAL_ERROR "Unknown platform, we have no clue what file to copy")
 endif()
 
-
 # Copy required Lua files
 file(
     COPY "$ENV{LUA_DIR}/jit"
@@ -63,6 +62,7 @@ add_executable(
         src/hex.cpp
         src/input.cpp
         src/module.cpp
+        src/resources.cpp
 )
 
 target_include_directories(
@@ -79,6 +79,16 @@ target_link_libraries(
         sol2
         ${LUA_LIB_FILES}
 )
+
+# enable compiler flags
+if (MSVC)
+    # warning level 4 and all warnings as errors
+    target_compile_options(stratgametest PRIVATE /W4)
+else()
+    # lots of warnings and all warnings as errors
+    target_compile_options(stratgametest PRIVATE -Wall -Wextra -pedantic)
+endif()
+
 
 add_custom_target(
     copy_resources ALL

@@ -143,6 +143,7 @@ void InputMgr::InjectSymbols(sol::state &lua) {
 }
 
 void InputMgr::RedefineKeyShortcut(sol::this_state ts, sol::string_view sv, KeyboardKey key, std::array<KeyboardKey, MAX_MODIFIERS> modifiers) {
+    (void)ts;
     //throw exception because luajit puts 1 when variable doesn't exist
     if(key == 1 || std::find(modifiers.begin(), modifiers.end(), 1) != modifiers.end()){
         std::cout << "Could not redefine shortcut - Unsupported key\n";
