@@ -11,7 +11,7 @@ Connection::Connection(const std::string &addr, unsigned int port) {
     this->m_tcp->on<uvw::ErrorEvent>([this](const auto &evt, auto &) {
         this->onError(evt);
     });
-    this->m_tcp->on<uvw::DataEvent>([this](const auto &evt, auto &) {
+    this->m_tcp->on<uvw::DataEvent>([this](const uvw::DataEvent &evt, auto &) {
         this->onData(evt);
     });
     this->m_tcp->on<uvw::CloseEvent>([this](const auto &evt, auto &) {
@@ -44,19 +44,31 @@ void Connection::onClose(const uvw::CloseEvent &evt) {
 }
 
 void Connection::onData(const uvw::DataEvent &evt) {
-    std::cout << "Received data: " << evt.data << std::endl;
-    /*auto packet_id = std::string_view(evt.data.get(), 16);
-    auto packet_data = std::string_view(evt.data.get() + 16, evt.length - 16);
-    if(packet_id == "chat"){
+    std::string data = std::string(evt.data.get());
+    auto dividerLoc = data.find('\0');
+    auto packetId = data.substr(0, dividerLoc);
 
-    }*/
-    packet_handler(evt.data.get(), evt.length);
+    m_handlers[packetId](data.substr(dividerLoc));
 }
 
 void Connection::onConnected(const uvw::ConnectEvent &evt) {
     std::cout << "Connected to: " << this->m_addr << ":" << this->m_port << std::endl;
 }
 
-void Connection::write(char *data, unsigned int len) {
-    this->m_tcp->write(data, len);
+template<Packet T>
+void Connection::write(const T &packet) {
+    std::string packetId = packet.name;
+    PacketRegistration<T> packetDecl = m_packets[packetId];
+    std::string packetData = packetDecl.serializer(packet);
+
+    std::string data = packetId + '\0' + packetData;
+    this->m_tcp->write(data.data(), data.length());
+}
+
+template<Packet T>
+void Connection::registerPacket(const std::string &name, Serializer<T> serializer,
+                                Deserializer<T> deserializer, Handler<T> handler) {
+    auto pr = PacketRegistration<T>{serializer, deserializer, handler};
+    m_packets.insert(name, pr);
+    m_handlers.insert(name, pr.handler);
 }
