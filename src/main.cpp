@@ -104,9 +104,9 @@ void raylib_simple_example(GameState &gs) {
 
     const int pretend_fraction = 0;
     // reveal a starting area
-    gs.world.value().at_ref_normalized(HexCoords::from_axial(1, 1)).visibility_flags |= 0b1 << pretend_fraction;
+    gs.world.value().at_ref_normalized(HexCoords::from_axial(1, 1)).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
     for(auto c : HexCoords::from_axial(1, 1).neighbours()) {
-        gs.world.value().at_ref_normalized(c).visibility_flags |= 0b1 << pretend_fraction;
+        gs.world.value().at_ref_normalized(c).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
     }
 
     Camera3D camera;
@@ -159,11 +159,11 @@ void raylib_simple_example(GameState &gs) {
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
             auto& tiledata = gs.world.value().at_ref_normalized(hovered_coords);
-            if (tiledata.visibility_flags & (0b1 << pretend_fraction)) {
+            if (tiledata.getFractionVisibility(pretend_fraction) != HexData::Visibility::NONE) {
                 for(const auto hc : hovered_coords.neighbours()) {
                     auto rt = gs.world.value().at_ref_abnormal(hc);
                     if (rt.has_value()) {
-                        rt.value().get().visibility_flags |= (0b1 << pretend_fraction);
+                        rt.value().get().setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
                     }
                 }
             }
@@ -200,7 +200,7 @@ void raylib_simple_example(GameState &gs) {
                         tint = BLUE;
                     }
                     const auto [tx, ty] = coords.to_world_unscaled();
-                    if (hx.tileid != -1 && (hx.visibility_flags & (0b1 << pretend_fraction))) {
+                    if (hx.tileid != -1 && hx.getFractionVisibility(pretend_fraction) != HexData::Visibility::NONE) {
                         DrawModelEx(gs.resourceStore.m_hex_table.at(hx.tileid).model, Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
                     }
                 }
