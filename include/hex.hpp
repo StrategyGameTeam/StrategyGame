@@ -75,8 +75,36 @@ struct HexCoords {
 };
 
 struct HexData {
-    int tileid;
-    int_least32_t visibility_flags;
+    int tileid = -1;
+    uint_least32_t visibility_flags = 0; // this implies max factions to be 16, as this is the max number of fractions this flag can fit
+    int owner_faction = -1;
+    int structure_atop = -1;
+    std::array<int, 6> structure_edges = {-1};
+    int upgrade_atop = -1;
+    std::array<int, 6> upgrade_edges = {-1};
+
+    enum class Visibility {
+        NONE = 0,
+        FOG = 1,
+        NORMAL = 2,
+        SUPERIOR = 3
+    };
+
+    Visibility getFractionVisibility (int fraction) {
+        return (Visibility)((visibility_flags & (0b11 << (fraction * 2))) >> (fraction * 2));
+    }
+
+    void setFractionVisibility (int fraction, Visibility vis) {
+        visibility_flags |= (int)vis << (fraction * 2);
+    }
+
+    void overrideVisibility (decltype(visibility_flags) val) {
+        visibility_flags = val;
+    }
+
+    void resetVisibility () {
+        visibility_flags = 0;
+    }
 };
 
 struct EdgeCoords {
@@ -94,7 +122,7 @@ struct CylinderHexWorld {
     CylinderHexWorld (int width, int height, HexT default_hex, HexT empty_hex)
         : width(width), height(height), empty_hex(empty_hex)
     {
-        data.resize((width)*(height), default_hex); 
+        data.resize((width)*(height), default_hex);
     }
 
     HexCoords normalized_coords (const HexCoords abnormal) const {

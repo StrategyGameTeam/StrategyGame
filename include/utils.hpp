@@ -2,17 +2,26 @@
 #include <iostream>
 
 namespace log {
+    void impl_anyprint (auto&) {}
+    void impl_anyprint (auto& output, auto& out, auto& ... rest) {
+        output << out << ' ';
+        impl_anyprint(output, rest...);
+    }
+
     void debug(auto ... ts) {
-        #ifdef DEBUG
-        std::cout (<< ts)... << '\n';
+        #ifndef NDEBUG
+        impl_anyprint(std::cout, ts...);
+        std::cout << '\n';
         #endif
     }
 
     void info (auto ... ts) {
-        std::cout (<< ts)... << '\n';
+        impl_anyprint(std::cout, ts...);
+        std::cout << '\n';
     }
 
     void error(auto ... ts) {
-        std::cerr (<< ts)... << '\n';
+        impl_anyprint(std::cerr, ts...);
+        std::cerr << '\n';
     }
 };

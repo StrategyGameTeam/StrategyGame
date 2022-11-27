@@ -11,10 +11,12 @@
 #include "input.hpp"
 #include "resources.hpp"
 
+// I have added too much fields to that, since there is more than a single "progress point" in loading of the game
+// ? @8Haze Would the new system with the stack and the frames solve that?
 struct GameState {
     InputMgr inputMgr;
     bool debug = true;
-    std::optional<CylinderHexWorld<int>> world;
+    std::optional<CylinderHexWorld<HexData>> world;
     ResourceStore resourceStore;
     ModuleLoader moduleLoader;
 
@@ -23,38 +25,63 @@ struct GameState {
         (void)options;
 
         auto& mod = moduleLoader.m_loaded_modules.at(gen.generator.lua_state());
-        int mode = 0; // AXIAL = 0, OFFSET = 1
-        auto map_table = mod.state.create_table_with(
-            "AXIAL", 0,
-            "OFFSET", 1,
-            "setSize", [&](int w, int h) { this->world = CylinderHexWorld<int>(w, h, 1, 0); },
-            "setTileCoords", [&](int m) { mode = m; },
-            "setTileAt", [&](int x, int y, int tileid) {
-                HexCoords where;
-                if (mode == 0) {
-                    where = HexCoords::from_axial(x-1, y-1);
-                } else {
-                    where = HexCoords::from_offset(x-1, y-1);
-                }
-                if (this->world.has_value()) {
-                    try {
-                        this->world.value().at_ref_normalized(where) = tileid;
-                    } catch (std::exception& e) {
-                        std::cerr << "setTileAt crashed : " << e.what() << '\n';
-                        return;
-                    }
-                } else {
-                    log::debug("Set the size before setting the data");
-                }
+        sol::table map_interface = mod.state.script(R"lua(
+            return {
+                AXIAL = 0,
+                OFFSET = 1,
+                _data = {{0}},
+                _mode = 0,
+                _width = 1,
+                _height = 1,              
+                setSize = function(self, width, height)
+                    self._width = width
+                    self._height = height
+                    self._data = {}
+                    for y=1, height do
+                        self._data[y] = {}
+                        for x=1, width do
+                            self._data[y][x] = -1
+                        end
+                    end
+                end,
+                setTileCoords = function(self, mode)
+                    self._mode = mode
+                end,
+                setTileAt = function(self, x, y, tile)
+                    self._data[y][x] = tile
+                end
             }
-        );
+        )lua");
+
         auto options_table = mod.state.create_table();
         try {
-            auto res = gen.generator.call(map_table, options_table);
+            auto res = gen.generator.call(map_interface, options_table);
             if (res.status() != sol::call_status::ok) {
+                sol::error err = res;
                 std::cerr << "Failed to run the world gen. Status = " << static_cast<int>(res.status()) << '\n';
-                std::cerr << "Stack top: " << res.get<sol::string_view>() << '\n';
+                std::cerr << "Stack top: " << err.what() << '\n';
                 abort();
+            }
+
+            int w = map_interface["_width"];
+            int h = map_interface["_height"];
+            int mode = map_interface["_mode"];
+
+            world = CylinderHexWorld<HexData>(w, h, {}, {});
+            for(const auto& [key, value] : map_interface["_data"].get<sol::table>()) {
+                if (key.get_type() != sol::type::number) continue;
+                if (value.get_type() != sol::type::table) continue;
+                for(const auto& [kkey, vvalue] : value.as<sol::table>()) {
+                    if (kkey.get_type() != sol::type::number) continue;
+                    if (vvalue.get_type() != sol::type::number) continue;
+                    HexCoords hc;
+                    if (mode == 0) {
+                        hc = HexCoords::from_axial(kkey.as<int>()-1, key.as<int>()-1);
+                    } else {
+                        hc = HexCoords::from_offset(kkey.as<int>()-1, key.as<int>()-1);
+                    }
+                    world->at_ref_normalized(hc).tileid = vvalue.as<int>();
+                }
             }
         } catch (std::exception& e) {
             std::cerr << "World Gen failed: " << e.what() << '\n';
@@ -72,7 +99,15 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 void raylib_simple_example(GameState &gs) {
+    log::debug(__func__, "started");
     gs.inputMgr.registerAction({"Toggle Debug Screen",[&] { gs.debug = !gs.debug; }}, {KEY_Q,{KEY_LEFT_CONTROL}});
+
+    const int pretend_fraction = 0;
+    // reveal a starting area
+    gs.world.value().at_ref_normalized(HexCoords::from_axial(1, 1)).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+    for(auto c : HexCoords::from_axial(1, 1).neighbours()) {
+        gs.world.value().at_ref_normalized(c).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+    }
 
     Camera3D camera;
     camera.fovy = 60.0;
@@ -123,8 +158,14 @@ void raylib_simple_example(GameState &gs) {
         const auto bottom_right = intersect_with_ground_plane(GetMouseRay({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera), 0.0f);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-            if (auto hx = gs.world.value().at_ref_abnormal(hovered_coords)) {
-                hx.value().get() = (hx.value().get() + 1) % 4;
+            auto& tiledata = gs.world.value().at_ref_normalized(hovered_coords);
+            if (tiledata.getFractionVisibility(pretend_fraction) != HexData::Visibility::NONE) {
+                for(const auto hc : hovered_coords.neighbours()) {
+                    auto rt = gs.world.value().at_ref_abnormal(hc);
+                    if (rt.has_value()) {
+                        rt.value().get().setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+                    }
+                }
             }
         }
 
@@ -148,7 +189,7 @@ void raylib_simple_example(GameState &gs) {
     
         BeginDrawing();
         {
-            ClearBackground(WHITE);
+            ClearBackground(DARKBLUE);
             BeginMode3D(camera); 
             {
                 DrawGrid(10, 1.0f);
@@ -159,15 +200,20 @@ void raylib_simple_example(GameState &gs) {
                         tint = BLUE;
                     }
                     const auto [tx, ty] = coords.to_world_unscaled();
-                    DrawModelEx(gs.resourceStore.m_hex_table.at(hx).model, Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
+                    if (hx.tileid != -1 && hx.getFractionVisibility(pretend_fraction) != HexData::Visibility::NONE) {
+                        DrawModelEx(gs.resourceStore.m_hex_table.at(hx.tileid).model, Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
+                    }
                 }
             }
             EndMode3D();
+            DrawText("Left Click Drag to move camera, Right Click to reveal area", 150, 10, 20, BLACK);
             if (gs.debug) {
                 DrawFPS(10, 10);
                 DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
                 const auto hovered_tile = gs.world.value().at(hovered_coords);
-                DrawText(gs.resourceStore.m_hex_table.at(hovered_tile).name.c_str(), 10, 50, 20, BLACK);
+                if (hovered_tile.tileid != -1) {
+                    DrawText(gs.resourceStore.m_hex_table.at(hovered_tile.tileid).name.c_str(), 10, 50, 20, BLACK);
+                }
             }
         }
         EndDrawing();
@@ -184,6 +230,7 @@ void raylib_simple_example(GameState &gs) {
 
         // std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
     }
+    log::debug(__func__, "ended");
 }
 
 int main () {
@@ -245,7 +292,7 @@ int main () {
         log::debug("BEFORE WORLDGEN");
         auto& def_gen = gs.resourceStore.m_worldgens.at(def_gen_id);
         log::debug("JUST BEFORE WORLDGEN");
-        gs.RunWorldgen(def_gen, {});
+        gs.RunWorldgen(*def_gen, {});
         log::debug("AFTER WORLDGEN");
         raylib_simple_example(gs);
     } catch (std::exception& e) {

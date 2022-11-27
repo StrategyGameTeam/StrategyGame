@@ -141,8 +141,8 @@ return {
           local width = 128
           local height = 128
 
-          Map.setSize(width, height)
-          Map.setTileCoords(Map.OFFSET)
+          Map:setSize(width, height)
+          Map:setTileCoords(Map.OFFSET)
 
           local grass = Defs.getHex("Grass")
           local stone = Defs.getHex("Stone")
@@ -180,17 +180,17 @@ return {
               amplitude = 128
 
               if mt[i][j] > 0.15 then
-                Map.setTileAt(i, j, mountain);
+                Map:setTileAt(i, j, mountain);
               elseif mt[i][j] > -0.05 then
                 if j < biomeHeight or j > 6 * biomeHeight then
-                  Map.setTileAt(i, j, stone)
+                  Map:setTileAt(i, j, stone)
                 elseif (j < biomeHeight * 3 - math.sin(i / 35 + math.cos(i / 15))*7 and j > biomeHeight * 2 + math.sin(i / 40 + math.cos(i / 20))*10) or (j < biomeHeight * 5 - math.sin(i / 50 + math.cos(i / 30))*5 and j > biomeHeight * 4 + math.sin(i / 30 + math.cos(i / 80))*12) then
-                  Map.setTileAt(i, j, sand)
+                  Map:setTileAt(i, j, sand)
                 else
-                  Map.setTileAt(i, j, grass)
+                  Map:setTileAt(i, j, grass)
                 end
               else
-                Map.setTileAt(i, j, water);
+                Map:setTileAt(i, j, water);
               end
             end
           end

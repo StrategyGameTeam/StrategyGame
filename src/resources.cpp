@@ -34,6 +34,7 @@ std::vector<ResourceIssues> ResourceStore::LoadModuleResources(ModuleLoader& ml)
 void ResourceStore::LoadProducts(const Module &mod, std::vector<ResourceIssues> &issues) {
     sol::optional<sol::table> prods = mod.module_root_object["declarations"]["products"];
     if (!prods.has_value()) return; // nothing to do, no products defined
+    m_product_table.reserve(prods.value().size());
     for(const auto& [_, rtab] : prods.value()) {
         ProductKind def;
         if (rtab.get_type() != sol::type::table) {
@@ -67,7 +68,7 @@ void ResourceStore::LoadProducts(const Module &mod, std::vector<ResourceIssues> 
         // filesystem can have wrong char formats, so we have to go through string to fix it
         def.image = LoadImage(icon_path.value().string().c_str());
         def.texture = LoadTextureFromImage(def.image); 
-        m_product_table.push_back(def);
+        m_product_table.emplace_back(std::move(def));
     }
 }
 
@@ -75,10 +76,11 @@ void ResourceStore::LoadHexes(const Module &mod, std::vector<ResourceIssues> &is
     sol::optional<sol::table> hexes = mod.module_root_object["declarations"]["hexes"];
     if (!hexes.has_value()) return; // nothing to do, no products defined
     for(const auto& [_, rtab] : hexes.value()) {
+        log::debug("LoadHexes loop start");
         HexKind def;
         if (rtab.get_type() != sol::type::table) {
             issues.push_back(issues::InvalidType{
-                .what_module = mod.name_unsafe(),
+                .what_module = mod.name_unsafe(),   
                 .what_def = "Hexes",
                 .what_field = "N/A (root table of the hex)",
                 .what_type_wanted = sol::type::table,
@@ -132,7 +134,7 @@ void ResourceStore::LoadWorldGen(const Module &mod, std::vector<ResourceIssues> 
     optional<table> wgens = mod.module_root_object["declarations"]["world_generators"];
     if (!wgens.has_value()) return;
     for(const auto& [_, rtab] : wgens.value()) {
-        WorldGen def;
+        auto def = std::make_unique<WorldGen>();
         if (rtab.get_type() != type::table) {
             issues.push_back(issues::InvalidType{
                 .what_module = mod.name_unsafe(),
@@ -158,8 +160,8 @@ void ResourceStore::LoadWorldGen(const Module &mod, std::vector<ResourceIssues> 
             continue;
         }
 
-        def.name = std::string(name.value());
-        def.generator = generator.value();
+        def->name = std::string(name.value());
+        def->generator = generator.value();
         if (options.has_value()) {
             // ! TODO: Finish this
             for(const auto& [key, value] : options.value()) {
@@ -175,7 +177,7 @@ void ResourceStore::LoadWorldGen(const Module &mod, std::vector<ResourceIssues> 
                             description = std::string(deets["description"].get<string_view>());
                         }
 
-                        def.options.emplace_back(WorldGen::Option{
+                        def->options.emplace_back(WorldGen::Option{
                             .name = std::string(name), 
                             .value = WorldGen::RangeOption{
                                 .from = deets["from"].get<double>(),
@@ -198,7 +200,7 @@ void ResourceStore::LoadWorldGen(const Module &mod, std::vector<ResourceIssues> 
             }
         }
     
-        m_worldgens.push_back(def);
+        m_worldgens.emplace_back(std::move(def));
     }
 }
 
@@ -219,7 +221,7 @@ int ResourceStore::FindProductIndex(std::string name) {
     });
 
     if (it == m_product_table.end()) return -1;
-    return std::distance(m_product_table.begin(), it);    
+    return std::distance(m_product_table.begin(), it)+1;    
 }
 
 int ResourceStore::FindHexIndex(std::string name) {
@@ -232,13 +234,26 @@ int ResourceStore::FindHexIndex(std::string name) {
 }
 
 int ResourceStore::FindGeneratorIndex(std::string name) {
-    const auto it = std::ranges::find_if(m_worldgens, [&](const WorldGen& gen) {
-        return gen.name == name;
+    const auto it = std::find_if(m_worldgens.begin(), m_worldgens.end(), [&](const auto& gen) {
+        return gen->name == name;
     });
 
     if (it == m_worldgens.end()) return -1;
     return std::distance(m_worldgens.begin(), it);
 }
+
+
+const ProductKind& ResourceStore::GetProduct(int idx) {
+    return m_product_table.at(idx); 
+};
+
+const HexKind& ResourceStore::GetHex(int idx) {
+    return m_hex_table.at(idx);
+};
+
+const WorldGen& ResourceStore::GetGenerator(int idx) {
+    return *m_worldgens.at(idx);
+};
 
 void ResourceStore::InjectSymbols(sol::state &lua) {
     using sol::as_function;
