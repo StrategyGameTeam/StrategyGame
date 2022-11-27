@@ -2,6 +2,7 @@
 #include <sol/sol.hpp>
 #include <raylib.h>
 #include "module.hpp"
+#include "utils.hpp"
 
 namespace issues {
     struct MissingField { std::string what_module; std::string what_def; std::string fieldname; };
@@ -16,6 +17,10 @@ struct ProductKind {
     std::string name;
     Image image;
     Texture texture;
+
+    ~ProductKind() {
+        log::debug(__func__);
+    }
 };
 
 struct HexKind {
@@ -23,6 +28,10 @@ struct HexKind {
     std::string description;
     std::vector<std::pair<int, int>> produces;
     Model model;
+
+    ~HexKind() {
+        log::debug(__func__);
+    }
 };
 
 struct WorldGen {
@@ -38,6 +47,16 @@ struct WorldGen {
     std::string name;
     std::vector<Option> options;
     sol::protected_function generator;
+
+    // World gens should not be movable, as they store VM references
+    WorldGen() = default;
+    WorldGen(const WorldGen&) = delete;
+    WorldGen(WorldGen&&) = delete;
+
+    ~WorldGen() {
+        generator.abandon(); // module loader might be already dead, so no luck trying to unregister from lua vms
+        log::debug(__func__);
+    }
 };
 
 struct ResourceStore {
@@ -53,7 +72,7 @@ struct ResourceStore {
     // Type tables
     std::vector<ProductKind> m_product_table;
     std::vector<HexKind> m_hex_table;
-    std::vector<WorldGen> m_worldgens;
+    std::vector<std::unique_ptr<WorldGen>> m_worldgens;
 
     // Resource file utils
     std::optional<std::filesystem::path> ResolveModuleFile(const Module& m, std::filesystem::path relpath) const;

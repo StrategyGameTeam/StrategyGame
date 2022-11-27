@@ -11,6 +11,8 @@
 #include "input.hpp"
 #include "resources.hpp"
 
+// I have added too much fields to that, since there is more than a single "progress point" in loading of the game
+// ? @8Haze Would the new system with the stack and the frames solve that?
 struct GameState {
     InputMgr inputMgr;
     bool debug = true;
@@ -24,6 +26,8 @@ struct GameState {
 
         auto& mod = moduleLoader.m_loaded_modules.at(gen.generator.lua_state());
         int mode = 0; // AXIAL = 0, OFFSET = 1
+        // TODO: Jump into lua with a full object that does the map stuff, then read it afterwards
+        // Cause performance
         auto map_table = mod.state.create_table_with(
             "AXIAL", 0,
             "OFFSET", 1,
@@ -72,6 +76,7 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 void raylib_simple_example(GameState &gs) {
+    log::debug(__func__, "started");
     gs.inputMgr.registerAction({"Toggle Debug Screen",[&] { gs.debug = !gs.debug; }}, {KEY_Q,{KEY_LEFT_CONTROL}});
 
     Camera3D camera;
@@ -184,6 +189,7 @@ void raylib_simple_example(GameState &gs) {
 
         // std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';  
     }
+    log::debug(__func__, "ended");
 }
 
 int main () {
@@ -245,7 +251,7 @@ int main () {
         log::debug("BEFORE WORLDGEN");
         auto& def_gen = gs.resourceStore.m_worldgens.at(def_gen_id);
         log::debug("JUST BEFORE WORLDGEN");
-        gs.RunWorldgen(def_gen, {});
+        gs.RunWorldgen(*def_gen, {});
         log::debug("AFTER WORLDGEN");
         raylib_simple_example(gs);
     } catch (std::exception& e) {
