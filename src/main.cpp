@@ -102,6 +102,13 @@ void raylib_simple_example(GameState &gs) {
     log::debug(__func__, "started");
     gs.inputMgr.registerAction({"Toggle Debug Screen",[&] { gs.debug = !gs.debug; }}, {KEY_Q,{KEY_LEFT_CONTROL}});
 
+    const int pretend_fraction = 0;
+    // reveal a starting area
+    gs.world.value().at_ref_normalized(HexCoords::from_axial(1, 1)).visibility_flags |= 0b1 << pretend_fraction;
+    for(auto c : HexCoords::from_axial(1, 1).neighbours()) {
+        gs.world.value().at_ref_normalized(c).visibility_flags |= 0b1 << pretend_fraction;
+    }
+
     Camera3D camera;
     camera.fovy = 60.0;
     camera.projection = CameraProjection::CAMERA_PERSPECTIVE;
@@ -151,7 +158,15 @@ void raylib_simple_example(GameState &gs) {
         const auto bottom_right = intersect_with_ground_plane(GetMouseRay({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera), 0.0f);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-            (void)0; // do something here later on
+            auto& tiledata = gs.world.value().at_ref_normalized(hovered_coords);
+            if (tiledata.visibility_flags & (0b1 << pretend_fraction)) {
+                for(const auto hc : hovered_coords.neighbours()) {
+                    auto rt = gs.world.value().at_ref_abnormal(hc);
+                    if (rt.has_value()) {
+                        rt.value().get().visibility_flags |= (0b1 << pretend_fraction);
+                    }
+                }
+            }
         }
 
         // this is temporary and also terrible, and also shows the bad frustom in all_within_unscaled_quad
@@ -174,7 +189,7 @@ void raylib_simple_example(GameState &gs) {
     
         BeginDrawing();
         {
-            ClearBackground(WHITE);
+            ClearBackground(DARKBLUE);
             BeginMode3D(camera); 
             {
                 DrawGrid(10, 1.0f);
@@ -185,12 +200,13 @@ void raylib_simple_example(GameState &gs) {
                         tint = BLUE;
                     }
                     const auto [tx, ty] = coords.to_world_unscaled();
-                    if (hx.tileid != -1) {
+                    if (hx.tileid != -1 && (hx.visibility_flags & (0b1 << pretend_fraction))) {
                         DrawModelEx(gs.resourceStore.m_hex_table.at(hx.tileid).model, Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
                     }
                 }
             }
             EndMode3D();
+            DrawText("Left Click Drag to move camera, Right Click to reveal area", 150, 10, 20, BLACK);
             if (gs.debug) {
                 DrawFPS(10, 10);
                 DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);

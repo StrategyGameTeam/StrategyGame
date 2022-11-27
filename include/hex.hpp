@@ -80,6 +80,8 @@ struct HexData {
     int owner_faction = 0;
     int structure_atop = -1;
     std::array<int, 6> structure_edges = {-1};
+    int upgrade_atop = -1;
+    std::array<int, 6> upgrade_edges = {-1};
 };
 
 struct EdgeCoords {
