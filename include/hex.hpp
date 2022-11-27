@@ -82,6 +82,29 @@ struct HexData {
     std::array<int, 6> structure_edges = {-1};
     int upgrade_atop = -1;
     std::array<int, 6> upgrade_edges = {-1};
+
+    enum class Visibility {
+        NONE = 0,
+        FOG = 1,
+        NORMAL = 2,
+        SUPERIOR = 3
+    };
+
+    Visibility getFractionVisibility (int fraction) {
+        return (Visibility)((visibility_flags & (0b11 << (fraction * 2))) >> (fraction * 2));
+    }
+
+    void setFractionVisibility (int fraction, Visibility vis) {
+        visibility_flags |= (int)vis << (fraction * 2);
+    }
+
+    void overrideVisibility (decltype(visibility_flags) val) {
+        visibility_flags = val;
+    }
+
+    void resetVisibility () {
+        visibility_flags = 0;
+    }
 };
 
 struct EdgeCoords {
