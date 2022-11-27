@@ -221,7 +221,7 @@ int ResourceStore::FindProductIndex(std::string name) {
     });
 
     if (it == m_product_table.end()) return -1;
-    return std::distance(m_product_table.begin(), it);    
+    return std::distance(m_product_table.begin(), it)+1;    
 }
 
 int ResourceStore::FindHexIndex(std::string name) {
@@ -241,6 +241,19 @@ int ResourceStore::FindGeneratorIndex(std::string name) {
     if (it == m_worldgens.end()) return -1;
     return std::distance(m_worldgens.begin(), it);
 }
+
+
+const ProductKind& ResourceStore::GetProduct(int idx) {
+    return m_product_table.at(idx); 
+};
+
+const HexKind& ResourceStore::GetHex(int idx) {
+    return m_hex_table.at(idx);
+};
+
+const WorldGen& ResourceStore::GetGenerator(int idx) {
+    return *m_worldgens.at(idx);
+};
 
 void ResourceStore::InjectSymbols(sol::state &lua) {
     using sol::as_function;

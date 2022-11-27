@@ -88,6 +88,10 @@ struct ResourceStore {
     int FindHexIndex (std::string name);
     int FindGeneratorIndex (std::string name);
 
+    const ProductKind& GetProduct(int idx);
+    const HexKind& GetHex(int idx);
+    const WorldGen& GetGenerator(int idx);
+
     // Inject things to get definitions
     void InjectSymbols(sol::state& lua);
 };

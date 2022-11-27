@@ -75,8 +75,11 @@ struct HexCoords {
 };
 
 struct HexData {
-    int tileid;
-    int_least32_t visibility_flags;
+    int tileid = -1;
+    uint_least32_t visibility_flags = 0;
+    int owner_faction = 0;
+    int structure_atop = -1;
+    std::array<int, 6> structure_edges = {-1};
 };
 
 struct EdgeCoords {
@@ -94,7 +97,7 @@ struct CylinderHexWorld {
     CylinderHexWorld (int width, int height, HexT default_hex, HexT empty_hex)
         : width(width), height(height), empty_hex(empty_hex)
     {
-        data.resize((width)*(height), default_hex); 
+        data.resize((width)*(height), default_hex);
     }
 
     HexCoords normalized_coords (const HexCoords abnormal) const {
