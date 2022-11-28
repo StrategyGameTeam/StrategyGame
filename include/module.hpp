@@ -69,6 +69,8 @@ struct ModuleLoader {
     // Goes through a directory to find modules that one could attempt to load
     std::vector<std::filesystem::path> ListCandidateModules (std::filesystem::path load_path);
     
+    std::optional<std::reference_wrapper<Module>> GetModule(lua_State* ptr);
+
     // Gives lua needed symbols (which is a bad name - think functions and variables)
     void InjectSymbols(sol::state& lua);
     // Tests if simple declared needs are met

@@ -23,56 +23,84 @@ std::vector<ResourceIssues> ResourceStore::LoadModuleResources(ModuleLoader& ml)
 
     // Loading products
     for(const auto& [_, mod] : ml.m_loaded_modules) {
-        LoadProducts(mod, issues);
-        LoadHexes(mod, issues);
-        LoadWorldGen(mod, issues);
+        LoadProducts(ml, mod, issues);
+        LoadHexes(ml, mod, issues);
+        LoadWorldGen(ml, mod, issues);
     }
 
     return issues;
 }
 
-void ResourceStore::LoadProducts(const Module &mod, std::vector<ResourceIssues> &issues) {
+template <sol::type Wanted> [[noreturn]] static void DoThrowBadType (ModuleLoader& ml, auto obj, std::string_view field)  {
+    throw ResourceIssues(issues::InvalidType{
+        .what_module = ml.GetModule(obj.lua_state()).value().get().name_unsafe(),
+        .what_field = std::string(field),
+        .what_type_wanted = Wanted,
+        .what_type_provided = obj.get_type()
+    });
+}
+
+template <typename ConvertInto, sol::type stored_type> std::optional<ConvertInto> GetOptional (ModuleLoader& ml, sol::table& from, std::string_view field) {
+    auto v = from[field];
+    if (!v.valid()) {
+        return {};
+    }
+    if (v.get_type() != stored_type) {
+        DoThrowBadType<stored_type>(ml, v, field);
+    }
+    return v.get<ConvertInto>();
+}
+
+template <typename ConvertInto, sol::type stored_type> ConvertInto GetRequired (ModuleLoader& ml, sol::table& from, std::string_view field) {
+    auto v = from[field];
+    if (!v.valid()) {
+        throw ResourceIssues(issues::MissingField{.what_module = ml.GetModule(from.lua_state()).value().get().name_unsafe(), .fieldname = std::string(field)});
+    }
+    if (v.get_type() != stored_type) {
+        DoThrowBadType<stored_type>(ml, v, field);
+    }
+    return v.get<ConvertInto>();
+}
+
+void ResourceStore::LoadProducts(ModuleLoader& ml, const Module &mod, std::vector<ResourceIssues> &issues) {
     sol::optional<sol::table> prods = mod.module_root_object["declarations"]["products"];
     if (!prods.has_value()) return; // nothing to do, no products defined
     m_product_table.reserve(prods.value().size());
     for(const auto& [_, rtab] : prods.value()) {
-        ProductKind def;
-        if (rtab.get_type() != sol::type::table) {
-            issues.push_back(issues::InvalidType{
-                .what_module = mod.name_unsafe(),
-                .what_def = "Products",
-                .what_field = "N/A (root table of the product)",
-                .what_type_wanted = sol::type::table,
-                .what_type_provided = rtab.get_type()
-            });
-            continue;
+        try {
+            ProductKind def;
+            if (rtab.get_type() != sol::type::table) {
+                issues.push_back(issues::InvalidType{
+                    .what_module = mod.name_unsafe(),
+                    .what_def = "Products",
+                    .what_field = "N/A (root table of the product)",
+                    .what_type_wanted = sol::type::table,
+                    .what_type_provided = rtab.get_type()
+                });
+                continue;
+            }
+            sol::table tab = rtab; 
+            def.name = GetRequired<sol::string_view, sol::type::string>(ml, tab, "name");
+            const auto icon = GetRequired<sol::string_view, sol::type::string>(ml, tab, "icon");
+            const auto icon_path = ResolveModuleFileThrows(mod, std::filesystem::path(icon));
+            def.image = LoadImage(icon_path.string().c_str());
+            def.texture = LoadTextureFromImage(def.image);
+            m_product_table.emplace_back(def);
+        } catch (ResourceIssues& issue) {
+            std::cout << "[][][][] === VARIANT CALLED ==== \n";
+        } catch (issues::MissingField& issue) {
+            std::cout << "[][][][] === MISSINGFIELD CALLED ==== \n";
+        } catch (issues::InvalidType& issue) {
+            std::cout << "[][][][] === INVALIDTYPE CALLED ==== \n";
+        } catch (issues::InvalidFile& issue) {
+            std::cout << "[][][][] === INVALIDFILE CALLED ==== \n";
+        } catch (...) {
+            std::cout << "[][][][] === CATCHALL CALLED ==== \n";
         }
-        sol::table tab = rtab; 
-        sol::optional<sol::string_view> name = tab["name"];
-        sol::optional<sol::string_view> icon = tab["icon"];
-        if (!name.has_value()) {
-            issues.push_back(issues::MissingField{.what_module = mod.name_unsafe(), .what_def = "products", .fieldname = "name"});
-            continue;
-        }
-        if (!icon.has_value()) {
-            issues.push_back(issues::MissingField{.what_module = mod.name_unsafe(), .what_def = "products", .fieldname = "icon"});
-            continue;
-        }
-        const auto icon_path = ResolveModuleFile(mod, std::filesystem::path(icon.value()));
-        if (!icon_path.has_value()) {
-            issues.push_back(issues::InvalidFile{.what_module = mod.name_unsafe(), .filepath = std::string(icon.value())});
-            continue;
-        }
-
-        def.name = std::string(name.value());
-        // filesystem can have wrong char formats, so we have to go through string to fix it
-        def.image = LoadImage(icon_path.value().string().c_str());
-        def.texture = LoadTextureFromImage(def.image); 
-        m_product_table.emplace_back(std::move(def));
     }
 }
 
-void ResourceStore::LoadHexes(const Module &mod, std::vector<ResourceIssues> &issues) {
+void ResourceStore::LoadHexes(ModuleLoader& modl, const Module &mod, std::vector<ResourceIssues> &issues) {
     sol::optional<sol::table> hexes = mod.module_root_object["declarations"]["hexes"];
     if (!hexes.has_value()) return; // nothing to do, no products defined
     for(const auto& [_, rtab] : hexes.value()) {
@@ -128,7 +156,7 @@ void ResourceStore::LoadHexes(const Module &mod, std::vector<ResourceIssues> &is
     }
 }
 
-void ResourceStore::LoadWorldGen(const Module &mod, std::vector<ResourceIssues> &issues) {
+void ResourceStore::LoadWorldGen(ModuleLoader& modl, const Module &mod, std::vector<ResourceIssues> &issues) {
     using namespace sol;
     
     optional<table> wgens = mod.module_root_object["declarations"]["world_generators"];
@@ -212,6 +240,15 @@ std::optional<std::filesystem::path> ResourceStore::ResolveModuleFile(const Modu
         return target;
     } else {
         return {};
+    }
+}
+
+std::filesystem::path ResourceStore::ResolveModuleFileThrows(const Module &m, std::filesystem::path relpath) const {
+    auto r = ResolveModuleFile(m, relpath);
+    if (r.has_value()) {
+        return r.value();
+    } else {
+        throw issues::InvalidFile{.what_module = m.name_unsafe(), .filepath = relpath.string()};
     }
 }
 

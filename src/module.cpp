@@ -29,6 +29,15 @@ std::string Module::name_unsafe() const {
     return std::string(this->name().value_or("???"));
 }
 
+std::optional<std::reference_wrapper<Module>> ModuleLoader::GetModule(lua_State *ptr) {
+    auto v = m_loaded_modules.find(ptr);
+    if (v != m_loaded_modules.end()) {
+        return v->second;
+    } else {
+        return {};
+    }
+}
+
 // ===== Loading stuff =====
 
 std::vector<std::filesystem::path> ModuleLoader::ListCandidateModules(std::filesystem::path load_path) {

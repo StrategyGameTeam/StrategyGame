@@ -3,7 +3,8 @@ return {
     declarations = {
         products = {
             { name = "Gold", icon = "coin.png" },
-            { name = "Iron", icon = "iron-bar.png" }
+            { name = "Iron", icon = "iron-bar.png" },
+            { icon = "iron-bar.png" }
         }
     }
 }

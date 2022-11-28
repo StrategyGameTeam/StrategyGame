@@ -69,20 +69,21 @@ struct ResourceStore {
     ResourceStore& operator= (const ResourceStore&) = delete;
     ResourceStore& operator= (ResourceStore&&) = delete;
 
-    // Type tables
+    // Type tables (optionals for possible non-initialized content)
     std::vector<ProductKind> m_product_table;
     std::vector<HexKind> m_hex_table;
     std::vector<std::unique_ptr<WorldGen>> m_worldgens;
 
     // Resource file utils
     std::optional<std::filesystem::path> ResolveModuleFile(const Module& m, std::filesystem::path relpath) const;
+    std::filesystem::path ResolveModuleFileThrows(const Module& m, std::filesystem::path relpath) const;
 
     // Process loaded modules, load their stuff into memory, apply alterations, and optimize
     std::vector<ResourceIssues> LoadModuleResources(ModuleLoader& modl);
     
-    void LoadProducts(const Module& mod, std::vector<ResourceIssues>& issues);
-    void LoadHexes(const Module& mod, std::vector<ResourceIssues>& issues);
-    void LoadWorldGen(const Module& mod, std::vector<ResourceIssues>& issues);
+    void LoadProducts(ModuleLoader& modl, const Module& mod, std::vector<ResourceIssues>& issues);
+    void LoadHexes(ModuleLoader& modl, const Module& mod, std::vector<ResourceIssues>& issues);
+    void LoadWorldGen(ModuleLoader& modl, const Module& mod, std::vector<ResourceIssues>& issues);
 
     int FindProductIndex (std::string name);
     int FindHexIndex (std::string name);
