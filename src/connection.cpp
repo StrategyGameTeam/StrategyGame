@@ -44,31 +44,24 @@ void Connection::onClose(const uvw::CloseEvent &evt) {
 }
 
 void Connection::onData(const uvw::DataEvent &evt) {
-    std::string data = std::string(evt.data.get());
-    auto dividerLoc = data.find('\0');
-    auto packetId = data.substr(0, dividerLoc);
+    PacketReader reader((char*)evt.data.get(), evt.length);
 
-    m_handlers[packetId](data.substr(dividerLoc));
+    auto packetId = reader.readString();
+
+    auto handler = std::find_if(m_handlers.begin(), m_handlers.end(), [&packetId](const PacketHandler &p) {
+        return p.packetId == packetId;
+    });
+    if(handler != m_handlers.end()){
+        handler->handler(reader);
+    }else{
+        std::cout << "Handler not found for packet: " << packetId << std::endl;
+    }
 }
 
 void Connection::onConnected(const uvw::ConnectEvent &evt) {
     std::cout << "Connected to: " << this->m_addr << ":" << this->m_port << std::endl;
 }
 
-template<Packet T>
-void Connection::write(const T &packet) {
-    std::string packetId = packet.name;
-    PacketRegistration<T> packetDecl = m_packets[packetId];
-    std::string packetData = packetDecl.serializer(packet);
-
-    std::string data = packetId + '\0' + packetData;
-    this->m_tcp->write(data.data(), data.length());
-}
-
-template<Packet T>
-void Connection::registerPacket(const std::string &name, Serializer<T> serializer,
-                                Deserializer<T> deserializer, Handler<T> handler) {
-    auto pr = PacketRegistration<T>{serializer, deserializer, handler};
-    m_packets.insert(name, pr);
-    m_handlers.insert(name, pr.handler);
+void Connection::registerPacket(const std::string &name, const std::function<void(PacketReader &)>& handler) {
+    m_handlers.push_back(PacketHandler{name, handler});
 }

@@ -1,40 +1,64 @@
 #pragma once
 #include <uvw.hpp>
+#include <iostream>
 #include <thread>
 
-template<typename T>
-using Serializer = std::function<std::string(T &)>;
+struct PacketReader {
+    std::unique_ptr<char*> buf;
+    unsigned long idx = 0;
+    unsigned long size;
 
-template<typename T>
-using Deserializer = std::function<T(std::string &)>;
+    PacketReader(char* buf, std::size_t size): buf(std::make_unique<char*>(buf)), size(size){
+    }
 
-template<typename T>
-using Handler = std::function<void(T &)>;
-
-struct PacketRegistrationBase{};
-
-template<typename T>
-struct PacketRegistration : PacketRegistrationBase {
-    Serializer<T> serializer;
-    Deserializer<T> deserializer;
-    Handler<T> handler;
-
-    void handle(const std::string &data){
-        handler(deserializer(data));
+    std::string readString(){
+        auto str = std::string(*buf + idx);
+        idx += str.length() + 1;
+        return str;
+    }
+    char readChar(){
+        return (*buf)[idx++];
+    }
+    int readInt(){
+        auto c1 = readChar();
+        auto c2 = readChar();
+        auto c3 = readChar();
+        auto c4 = readChar();
+        return (c1 << 24) | (c2 << 16) | (c3 << 8) | c4;
     }
 };
 
+struct PacketWriter {
+    std::unique_ptr<char*> buf = std::make_unique<char*>(new char[64*1024]);
+    unsigned long len = 0;
+
+    void writeString(std::string str){
+        auto cstr = str.c_str();
+        for(int i = 0; cstr[i] != 0; i++){
+            (*buf)[len++] = cstr[i];
+        }
+        (*buf)[len++] = 0;
+    }
+    void writeChar(char c){
+        (*buf)[len++] = c;
+    }
+    void writeInt(int n){
+        writeChar((n >> 24) & 0xff);
+        writeChar((n >> 16) & 0xff);
+        writeChar((n >> 8) & 0xff);
+        writeChar(n & 0xff);
+    }
+};
+
+struct PacketHandler {
+    std::string packetId;
+    std::function<void(PacketReader &)> handler;
+};
+
 template <typename T>
-concept Packet = requires(T ext) {
-{ ext.packetId };
+concept Packet = requires(T ext, PacketWriter &wr) {
+    { ext.packetId, ext.serialize(wr) };
 };
-
-struct ChatPacket {
-    static const std::string packetId;
-    std::string msg;
-};
-const std::string ChatPacket::packetId = "chat";
-
 
 struct Connection{
     std::string m_addr;
@@ -43,8 +67,7 @@ struct Connection{
     std::shared_ptr<uvw::TCPHandle> m_tcp;
     std::thread m_read_thread;
 
-    std::unordered_map<std::string, PacketRegistrationBase> m_packets;
-    std::unordered_map<std::string, std::function<void(std::string)>> m_handlers;
+    std::vector<PacketHandler> m_handlers;
 
     Connection(const std::string &, unsigned int);
     ~Connection();
@@ -55,12 +78,14 @@ struct Connection{
     void onConnected(const uvw::ConnectEvent &evt);
 
     template<Packet T>
-    void write(const T &packet);
+    void write(const T &packet) {
+        PacketWriter wr;
+        wr.writeString(packet.packetId);
+        packet.serialize(wr);
+        this->m_tcp->write(*wr.buf, wr.len);
+    }
 
     void onData(const uvw::DataEvent &);
-
-    template<Packet T>
-    void registerPacket(const std::string &name, Serializer<T> serializer,
-                        Deserializer<T> deserializer, Handler<T> handler);
+    void registerPacket(const std::string &name, const std::function<void(PacketReader &)>& handler);
 
 };

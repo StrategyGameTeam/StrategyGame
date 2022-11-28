@@ -32,6 +32,18 @@ struct ChatMessage {
     std::chrono::system_clock::time_point tp;
 };
 
+struct ChatPacket {
+    static const std::string packetId;
+    std::string msg;
+
+    void serialize(PacketWriter &wr) const {
+        wr.writeString(msg);
+        wr.writeInt(2050);
+        wr.writeInt(-4567);
+    }
+};
+const std::string ChatPacket::packetId = "chat";
+
 
 Vector3 intersect_with_ground_plane(const Ray ray, float plane_height) {
     const auto moveunit = (plane_height - ray.position.y) / ray.direction.y;
@@ -78,11 +90,16 @@ void raylib_simple_example(GameState &gs) {
     }});
     std::vector<ChatMessage> chat_messages;
 
-    gs.connection.registerPacket<ChatPacket>(
+
+    gs.connection.registerPacket(
             ChatPacket::packetId,
-            [](ChatPacket &p) { return p.msg; },
-            [](std::string &data) { return ChatPacket{data}; },
-            [&chat_messages](ChatPacket &p) {
+            [&chat_messages](PacketReader &reader) {
+                auto data = reader.readString();
+                auto i1 = reader.readInt();
+                auto i2 = reader.readInt();
+                auto p = ChatPacket{data};
+                std::cout << "Int 1: " << i1 << std::endl;
+                std::cout << "Int 2: " << i2 << std::endl;
                 chat_messages.push_back({p.msg, std::chrono::system_clock::now()});
             }
     );
@@ -208,9 +225,9 @@ void raylib_simple_example(GameState &gs) {
         const auto rendering_time = (rendering_end - rendering_start).count();
         const auto vis_test = (rendering_start - light_logic_end).count();
 
-        std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART="
-                  << (double) (rendering_time) / (double) (total_time) << "   VISTESTPART="
-                  << (double) (vis_test) / (double) (total_time) << '\n';
+        //std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART="
+        //          << (double) (rendering_time) / (double) (total_time) << "   VISTESTPART="
+        //          << (double) (vis_test) / (double) (total_time) << '\n';
     }
     CloseWindow();
 }
