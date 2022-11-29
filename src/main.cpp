@@ -7,42 +7,16 @@
 #include <sol/sol.hpp>
 #include "module.hpp"
 #include "hex.hpp"
-#include "input.hpp"
+#include "chat.hpp"
+#include "ui_input.hpp"
+#include "game.hpp"
 
 #define NOGDI
 #define NODRAWTEXT
 #define NOOPENFILE
 #define NOUSER
 
-#include "connection.hpp"
-
 #undef max
-
-#include "ui_input.hpp"
-
-struct GameState {
-    InputMgr inputMgr;
-    bool debug = true;
-    CylinderHexWorld<char> world = {100, 50, (char) 0, (char) 3};
-    Connection connection = {"127.0.0.1", 4242};
-};
-
-struct ChatMessage {
-    std::string msg;
-    std::chrono::system_clock::time_point tp;
-};
-
-struct ChatPacket {
-    static const std::string packetId;
-    std::string msg;
-
-    void serialize(PacketWriter &wr) const {
-        wr.writeString(msg);
-        wr.writeInt(2050);
-        wr.writeInt(-4567);
-    }
-};
-const std::string ChatPacket::packetId = "chat";
 
 
 Vector3 intersect_with_ground_plane(const Ray ray, float plane_height) {
@@ -82,27 +56,13 @@ void raylib_simple_example(GameState &gs) {
                                                LoadModel("resources/hexes/water.obj")
                                        }};
 
+    Chat chat(gs);
     //todo: replace with proper ui element management
     std::vector<UiInput> ui_elements;
     ui_elements.push_back({0, 440, 200, 40, [&](std::string &text) {
         gs.connection.write(ChatPacket{text});
         return true;
     }});
-    std::vector<ChatMessage> chat_messages;
-
-
-    gs.connection.registerPacket(
-            ChatPacket::packetId,
-            [&chat_messages](PacketReader &reader) {
-                auto data = reader.readString();
-                auto i1 = reader.readInt();
-                auto i2 = reader.readInt();
-                auto p = ChatPacket{data};
-                std::cout << "Int 1: " << i1 << std::endl;
-                std::cout << "Int 2: " << i2 << std::endl;
-                chat_messages.push_back({p.msg, std::chrono::system_clock::now()});
-            }
-    );
 
     // this should be done per model, but for now, we don't even have a proper tile type, so it's fine
     const auto model_bb = GetModelBoundingBox(hex_models.at(0));
@@ -205,17 +165,7 @@ void raylib_simple_example(GameState &gs) {
             for (const auto &item: ui_elements) {
                 item.render();
             }
-
-            int posY = 420;
-            for (int i = chat_messages.size() - 1; i >= 0; i--) {
-                auto now = std::chrono::system_clock::now();
-                auto dur = now - chat_messages[i].tp;
-                if (std::chrono::duration_cast<std::chrono::seconds>(dur).count() > 5) {
-                    break;
-                }
-                DrawText(chat_messages[i].msg.data(), 5, posY, 18, {0, 0, 0, 255});
-                posY -= 20;
-            }
+            chat.render();
         }
         EndDrawing();
 

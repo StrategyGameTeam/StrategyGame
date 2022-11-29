@@ -45,16 +45,13 @@ void Connection::onClose(const uvw::CloseEvent &evt) {
 
 void Connection::onData(const uvw::DataEvent &evt) {
     PacketReader reader((char*)evt.data.get(), evt.length);
-
     auto packetId = reader.readString();
-
-    auto handler = std::find_if(m_handlers.begin(), m_handlers.end(), [&packetId](const PacketHandler &p) {
-        return p.packetId == packetId;
-    });
-    if(handler != m_handlers.end()){
-        handler->handler(reader);
-    }else{
+    auto [start, end] = m_handlers.equal_range(packetId);
+    if(start == end){
         std::cout << "Handler not found for packet: " << packetId << std::endl;
+    }
+    for(auto i = start; i != end; i++){
+        i->second(reader);
     }
 }
 
@@ -62,6 +59,6 @@ void Connection::onConnected(const uvw::ConnectEvent &evt) {
     std::cout << "Connected to: " << this->m_addr << ":" << this->m_port << std::endl;
 }
 
-void Connection::registerPacket(const std::string &name, const std::function<void(PacketReader &)>& handler) {
-    m_handlers.push_back(PacketHandler{name, handler});
+void Connection::registerPacketHandler(const std::string &name, const std::function<void(PacketReader &)>& handler) {
+    m_handlers.emplace(name, handler);
 }

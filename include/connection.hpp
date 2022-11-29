@@ -32,12 +32,11 @@ struct PacketWriter {
     std::unique_ptr<char*> buf = std::make_unique<char*>(new char[64*1024]);
     unsigned long len = 0;
 
-    void writeString(std::string str){
-        auto cstr = str.c_str();
-        for(int i = 0; cstr[i] != 0; i++){
-            (*buf)[len++] = cstr[i];
+    void writeString(const std::string &str){
+        for (const auto c: str){
+            writeChar(c);
         }
-        (*buf)[len++] = 0;
+        writeChar(0);
     }
     void writeChar(char c){
         (*buf)[len++] = c;
@@ -48,11 +47,6 @@ struct PacketWriter {
         writeChar((n >> 8) & 0xff);
         writeChar(n & 0xff);
     }
-};
-
-struct PacketHandler {
-    std::string packetId;
-    std::function<void(PacketReader &)> handler;
 };
 
 template <typename T>
@@ -67,7 +61,7 @@ struct Connection{
     std::shared_ptr<uvw::TCPHandle> m_tcp;
     std::thread m_read_thread;
 
-    std::vector<PacketHandler> m_handlers;
+    std::unordered_multimap<std::string, std::function<void(PacketReader &)>> m_handlers;
 
     Connection(const std::string &, unsigned int);
     ~Connection();
@@ -86,6 +80,6 @@ struct Connection{
     }
 
     void onData(const uvw::DataEvent &);
-    void registerPacket(const std::string &name, const std::function<void(PacketReader &)>& handler);
+    void registerPacketHandler(const std::string &name, const std::function<void(PacketReader &)>& handler);
 
 };
