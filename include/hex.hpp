@@ -74,6 +74,21 @@ struct HexCoords {
     static HexCoords from_offset(int col, int row);
 };
 
+namespace std {
+    template <>
+    struct hash<HexCoords> {
+        size_t operator()(const HexCoords& hc) const noexcept {
+            union {
+                size_t whole;
+                int parts[2];
+            } un;
+            un.parts[0] = hc.q;
+            un.parts[1] = hc.r;
+            return std::hash<size_t>()(un.whole);
+        }
+    };
+}
+
 struct HexData {
     int tileid = -1;
     uint_least32_t visibility_flags = 0; // this implies max factions to be 16, as this is the max number of fractions this flag can fit
@@ -119,6 +134,7 @@ struct CylinderHexWorld {
     HexT empty_hex;
     std::vector<HexT> data;
 
+    CylinderHexWorld() = default;
     CylinderHexWorld (int width, int height, HexT default_hex, HexT empty_hex)
         : width(width), height(height), empty_hex(empty_hex)
     {

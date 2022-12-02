@@ -18,8 +18,8 @@ ResourceStore::~ResourceStore() {
     log::debug("UNLOADING DONE");
 }
 
-std::vector<ResourceIssues> ResourceStore::LoadModuleResources(ModuleLoader& ml) {
-    std::vector<ResourceIssues> issues;
+std::vector<issues::AnyIssue> ResourceStore::LoadModuleResources(ModuleLoader& ml) {
+    std::vector<issues::AnyIssue> issues;
 
     // Loading products
     for(const auto& [_, mod] : ml.m_loaded_modules) {
@@ -31,38 +31,63 @@ std::vector<ResourceIssues> ResourceStore::LoadModuleResources(ModuleLoader& ml)
     return issues;
 }
 
-template <sol::type Wanted> [[noreturn]] static void DoThrowBadType (ModuleLoader& ml, auto obj, std::string_view field)  {
-    throw ResourceIssues(issues::InvalidType{
+template <sol::type Wanted> [[noreturn]] static void DoThrowBadType (ModuleLoader& ml, auto obj, std::string_view field, std::string what_def = "???")  {
+    throw issues::AnyIssue(issues::InvalidType{
         .what_module = ml.GetModule(obj.lua_state()).value().get().name_unsafe(),
         .what_field = std::string(field),
+        .what_def = what_def,
         .what_type_wanted = Wanted,
         .what_type_provided = obj.get_type()
     });
 }
 
-template <typename ConvertInto, sol::type stored_type> std::optional<ConvertInto> GetOptional (ModuleLoader& ml, sol::table& from, std::string_view field) {
-    auto v = from[field];
-    if (!v.valid()) {
-        return {};
+struct GetUtils {
+    ModuleLoader& ml;
+    std::string what_def;
+
+    GetUtils(ModuleLoader& ml, std::string what_def = "???") : ml(ml), what_def(what_def) {}
+
+    template <typename ConvertInto, sol::type stored_type> sol::optional<ConvertInto> GetOptional (sol::table& from, std::string_view field) {
+        auto v = from[field];
+        if (!v.valid()) {
+            return {};
+        }
+        if (v.get_type() != stored_type) {
+            DoThrowBadType<stored_type>(ml, v, field, what_def);
+        }
+        return v.get<ConvertInto>();
     }
-    if (v.get_type() != stored_type) {
-        DoThrowBadType<stored_type>(ml, v, field);
+
+    template <typename ConvertInto, sol::type stored_type> ConvertInto GetRequired (sol::table& from, std::string_view field) {
+        auto v = from[field];
+        if (!v.valid()) {
+            throw issues::AnyIssue(issues::MissingField{.what_module = ml.GetModule(from.lua_state()).value().get().name_unsafe(), .fieldname = std::string(field), .what_def = what_def});
+        }
+        if (v.get_type() != stored_type) {
+            DoThrowBadType<stored_type>(ml, v, field, what_def);
+        }
+        return v.get<ConvertInto>();
     }
-    return v.get<ConvertInto>();
+};
+
+void WrapLoadingForIssues(ModuleLoader& ml, std::vector<issues::AnyIssue>& issues, auto loader) {
+    try {
+        auto report_issue = [&](issues::AnyIssue issue){
+            issues.emplace_back(std::move(issue));
+        };
+        loader(report_issue);
+    } catch (issues::AnyIssue& issue) {
+        issues.push_back(issue);
+    } catch (std::exception& exc) {
+        issues.emplace_back(issues::UnknownError{.message = exc.what()});
+    } catch (...) {
+        issues.emplace_back(issues::UnknownError{.message = "???"});
+    }
 }
 
-template <typename ConvertInto, sol::type stored_type> ConvertInto GetRequired (ModuleLoader& ml, sol::table& from, std::string_view field) {
-    auto v = from[field];
-    if (!v.valid()) {
-        throw ResourceIssues(issues::MissingField{.what_module = ml.GetModule(from.lua_state()).value().get().name_unsafe(), .fieldname = std::string(field)});
-    }
-    if (v.get_type() != stored_type) {
-        DoThrowBadType<stored_type>(ml, v, field);
-    }
-    return v.get<ConvertInto>();
-}
+void ResourceStore::LoadProducts(ModuleLoader& ml, const Module &mod, std::vector<issues::AnyIssue> &issues) {
+    auto GetU = GetUtils(ml, "product");
 
-void ResourceStore::LoadProducts(ModuleLoader& ml, const Module &mod, std::vector<ResourceIssues> &issues) {
     sol::optional<sol::table> prods = mod.module_root_object["declarations"]["products"];
     if (!prods.has_value()) return; // nothing to do, no products defined
     m_product_table.reserve(prods.value().size());
@@ -70,93 +95,80 @@ void ResourceStore::LoadProducts(ModuleLoader& ml, const Module &mod, std::vecto
         try {
             ProductKind def;
             if (rtab.get_type() != sol::type::table) {
+                DoThrowBadType<sol::type::table>(ml, rtab, "(root)");
+            }
+            sol::table tab = rtab; 
+            def.name = GetU.GetRequired<sol::string_view, sol::type::string>(tab, "name");
+            const auto icon = GetU.GetRequired<sol::string_view, sol::type::string>(tab, "icon");
+            const auto icon_path = ResolveModuleFileThrows(mod, std::filesystem::path(icon));
+            def.image = LoadImage(icon_path.string().c_str());
+            def.texture = LoadTextureFromImage(def.image);
+            m_product_table.emplace_back(def);
+        } catch (issues::AnyIssue& issue) {
+            issues.push_back(issue);
+        } catch (...) {
+            issues.emplace_back(issues::UnknownError{.message = "???"});
+        }
+    }
+}
+
+void ResourceStore::LoadHexes(ModuleLoader& modl, const Module &mod, std::vector<issues::AnyIssue> &issues) {
+    auto G = GetUtils(modl, "hex");
+
+    sol::optional<sol::table> hexes = mod.module_root_object["declarations"]["hexes"];
+    if (!hexes.has_value()) return; // nothing to do, no products defined
+    for(const auto& [_, rtab] : hexes.value()) {
+        try {
+            log::debug("LoadHexes loop start");
+            HexKind def;
+            if (rtab.get_type() != sol::type::table) {
                 issues.push_back(issues::InvalidType{
-                    .what_module = mod.name_unsafe(),
-                    .what_def = "Products",
-                    .what_field = "N/A (root table of the product)",
+                    .what_module = mod.name_unsafe(),   
+                    .what_def = "Hexes",
+                    .what_field = "N/A (root table of the hex)",
                     .what_type_wanted = sol::type::table,
                     .what_type_provided = rtab.get_type()
                 });
                 continue;
             }
             sol::table tab = rtab; 
-            def.name = GetRequired<sol::string_view, sol::type::string>(ml, tab, "name");
-            const auto icon = GetRequired<sol::string_view, sol::type::string>(ml, tab, "icon");
-            const auto icon_path = ResolveModuleFileThrows(mod, std::filesystem::path(icon));
-            def.image = LoadImage(icon_path.string().c_str());
-            def.texture = LoadTextureFromImage(def.image);
-            m_product_table.emplace_back(def);
-        } catch (ResourceIssues& issue) {
-            std::cout << "[][][][] === VARIANT CALLED ==== \n";
-        } catch (issues::MissingField& issue) {
-            std::cout << "[][][][] === MISSINGFIELD CALLED ==== \n";
-        } catch (issues::InvalidType& issue) {
-            std::cout << "[][][][] === INVALIDTYPE CALLED ==== \n";
-        } catch (issues::InvalidFile& issue) {
-            std::cout << "[][][][] === INVALIDFILE CALLED ==== \n";
-        } catch (...) {
-            std::cout << "[][][][] === CATCHALL CALLED ==== \n";
-        }
-    }
-}
+            sol::string_view name = G.GetRequired<sol::string_view, sol::type::string>(tab, "name");
+            sol::string_view model = G.GetRequired<sol::string_view, sol::type::string>(tab, "model");
+            auto description = G.GetOptional<sol::string_view, sol::type::string>(tab, "description");
+            auto products = G.GetOptional<sol::table, sol::type::table>(tab, "products");
+            auto vis_cost = G.GetOptional<int, sol::type::number>(tab, "vision_cost");
+            auto mov_cost = G.GetOptional<int, sol::type::number>(tab, "movement_cost");
 
-void ResourceStore::LoadHexes(ModuleLoader& modl, const Module &mod, std::vector<ResourceIssues> &issues) {
-    sol::optional<sol::table> hexes = mod.module_root_object["declarations"]["hexes"];
-    if (!hexes.has_value()) return; // nothing to do, no products defined
-    for(const auto& [_, rtab] : hexes.value()) {
-        log::debug("LoadHexes loop start");
-        HexKind def;
-        if (rtab.get_type() != sol::type::table) {
-            issues.push_back(issues::InvalidType{
-                .what_module = mod.name_unsafe(),   
-                .what_def = "Hexes",
-                .what_field = "N/A (root table of the hex)",
-                .what_type_wanted = sol::type::table,
-                .what_type_provided = rtab.get_type()
-            });
-            continue;
-        }
-        sol::table tab = rtab; 
-        sol::optional<sol::string_view> name = tab["name"];
-        sol::optional<sol::string_view> model = tab["model"];
-        sol::optional<sol::string_view> description = tab["description"];
-        sol::optional<sol::table> products = tab["products"];
-
-        if (!name.has_value()) {
-            issues.push_back(issues::MissingField{.what_module = mod.name_unsafe(), .what_def = "products", .fieldname = "name"});
-            continue;
-        }
-        if (!model.has_value()) {
-            issues.push_back(issues::MissingField{.what_module = mod.name_unsafe(), .what_def = "products", .fieldname = "icon"});
-            continue;
-        }
-        // description is optional
-        // products are optional
-
-        const auto model_path = ResolveModuleFile(mod, std::filesystem::path(model.value()));
-        if (!model_path.has_value()) {
-            issues.push_back(issues::InvalidFile{.what_module = mod.name_unsafe(), .filepath = std::string(model.value())});
-            continue;
-        }
-        
-        def.name = name.value();
-        def.model = LoadModel(model_path.value().string().c_str());
-        if (description.has_value()) def.description = description.value();
-        if (products.has_value()) {
-            for(auto& [key, value] : products.value()) {
-                if (key.get_type() != sol::type::string) {
-                    issues.push_back(issues::InvalidKey{.what_module = mod.name_unsafe(), .what_def = "hexes"});
-                    continue;
-                }
-                def.produces.push_back({FindProductIndex(std::string(key.as<sol::string_view>())), value.as<int>()});
+            const auto model_path = ResolveModuleFile(mod, std::filesystem::path(model));
+            if (!model_path.has_value()) {
+                issues.push_back(issues::InvalidFile{.what_module = mod.name_unsafe(), .filepath = std::string(model)});
+                continue;
             }
+            
+            def.name = name;
+            def.model = LoadModel(model_path.value().string().c_str());
+            if (description.has_value()) def.description = description.value();
+            if (products.has_value()) {
+                for(auto& [key, value] : products.value()) {
+                    if (key.get_type() != sol::type::string) {
+                        issues.push_back(issues::InvalidKey{.what_module = mod.name_unsafe(), .what_def = "hexes"});
+                        continue;
+                    }
+                    def.produces.push_back({FindProductIndex(std::string(key.as<sol::string_view>())), value.as<int>()});
+                }
+            }
+            if (vis_cost.has_value()) def.vision_cost = vis_cost.value();
+            if (mov_cost.has_value()) def.movement_cost = mov_cost.value();
+            m_hex_table.push_back(def);
+        } catch (issues::AnyIssue& issue) {
+            issues.push_back(issue);
+        } catch (std::exception& e) {
+            issues.emplace_back(issues::UnknownError{.message = e.what()});
         }
-
-        m_hex_table.push_back(def);
     }
 }
 
-void ResourceStore::LoadWorldGen(ModuleLoader& modl, const Module &mod, std::vector<ResourceIssues> &issues) {
+void ResourceStore::LoadWorldGen(ModuleLoader& modl, const Module &mod, std::vector<issues::AnyIssue> &issues) {
     using namespace sol;
     
     optional<table> wgens = mod.module_root_object["declarations"]["world_generators"];

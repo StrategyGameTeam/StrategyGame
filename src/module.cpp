@@ -51,7 +51,7 @@ std::vector<std::filesystem::path> ModuleLoader::ListCandidateModules(std::files
     return paths;
 }
 
-void ModuleLoader::BasicValidation(std::vector<issues::ModuleIssues> &issues) {
+void ModuleLoader::BasicValidation(std::vector<issues::AnyIssue> &issues) {
     // get a hashset of names of modules
     std::unordered_set<std::string> module_names;
     for(const auto& [_, mod] : m_loaded_modules) { 

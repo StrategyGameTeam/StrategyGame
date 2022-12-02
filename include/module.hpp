@@ -7,28 +7,10 @@
 #include <unordered_set>
 #include <variant>
 #include <string>
+#include "issues.hpp"
 
 struct Module;
 
-// ===== Issues with modules =====
-namespace issues {
-    // We cannot read the given path as valid lua
-    struct InvalidPath { std::string path; };
-    // Something happened, no clue what
-    struct UnknownError { std::string message; };
-    // Lua done goofed
-    struct LuaError { std::string message; };
-    // Running a module did not return a table
-    struct NotATable { std::string mod; };
-    // A module that is needed is not available
-    struct RequiredModuleNotFound { std::string requiree; std::string required; };
-    // A module did not declare its name
-    struct UnnamedModule { std::string path; };
-    // Something extra was present in the configuration
-    struct ExtraneousElement { std::string mod; std::string in; };
-
-    using ModuleIssues = std::variant<InvalidPath, UnknownError, LuaError, NotATable, RequiredModuleNotFound, UnnamedModule, ExtraneousElement>;
-}
 
 struct Module {
     std::string entry_point;
@@ -74,7 +56,7 @@ struct ModuleLoader {
     // Gives lua needed symbols (which is a bad name - think functions and variables)
     void InjectSymbols(sol::state& lua);
     // Tests if simple declared needs are met
-    void BasicValidation(std::vector<issues::ModuleIssues> &issues);
+    void BasicValidation(std::vector<issues::AnyIssue> &issues);
 
     // Used to call the method InjecSymbols on a bunch of objects of different types
     static void LoadLuaTRec(sol::state &lua) {(void)lua;}
@@ -86,8 +68,8 @@ struct ModuleLoader {
 
     // Start running lua modules
     template <ModuleExtention ...ExtentionTS>
-    std::vector<issues::ModuleIssues> LoadModules(const std::vector<std::filesystem::path>& module_paths, ExtentionTS&... extentions) {
-        std::vector<issues::ModuleIssues> issues;
+    std::vector<issues::AnyIssue> LoadModules(const std::vector<std::filesystem::path>& module_paths, ExtentionTS&... extentions) {
+        std::vector<issues::AnyIssue> issues;
 
         // Load and run Lua
         for(const auto& modpath : module_paths) {

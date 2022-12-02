@@ -4,27 +4,36 @@
 
 #include "raylib.h"
 #include "raymath.h"
+
 #include <sol/sol.hpp>
 #include "utils.hpp"
 #include "module.hpp"
 #include "hex.hpp"
 #include "input.hpp"
 #include "resources.hpp"
+#include "units.hpp"
+
 
 // I have added too much fields to that, since there is more than a single "progress point" in loading of the game
-// ? @8Haze Would the new system with the stack and the frames solve that?
-struct GameState {
+struct AppState {
     InputMgr inputMgr;
     bool debug = true;
-    std::optional<CylinderHexWorld<HexData>> world;
     ResourceStore resourceStore;
     ModuleLoader moduleLoader;
+};
+
+struct GameState {
+    AppState& as;
+    CylinderHexWorld<HexData> world;
+    std::unordered_map<HexCoords, UnitData> units;
+
+    GameState(AppState& as) : as(as) {}
 
     void RunWorldgen(WorldGen& gen, std::unordered_map<std::string, std::variant<double, std::string, bool>> options) {
         using sol::as_function;
         (void)options;
 
-        auto& mod = moduleLoader.m_loaded_modules.at(gen.generator.lua_state());
+        auto& mod = as.moduleLoader.m_loaded_modules.at(gen.generator.lua_state());
         sol::table map_interface = mod.state.script(R"lua(
             return {
                 AXIAL = 0,
@@ -80,7 +89,7 @@ struct GameState {
                     } else {
                         hc = HexCoords::from_offset(kkey.as<int>()-1, key.as<int>()-1);
                     }
-                    world->at_ref_normalized(hc).tileid = vvalue.as<int>();
+                    world.at_ref_normalized(hc).tileid = vvalue.as<int>();
                 }
             }
         } catch (std::exception& e) {
@@ -100,13 +109,13 @@ template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 void raylib_simple_example(GameState &gs) {
     log::debug(__func__, "started");
-    gs.inputMgr.registerAction({"Toggle Debug Screen",[&] { gs.debug = !gs.debug; }}, {KEY_Q,{KEY_LEFT_CONTROL}});
+    gs.as.inputMgr.registerAction({"Toggle Debug Screen",[&] { gs.as.debug = !gs.as.debug; }}, {KEY_Q,{KEY_LEFT_CONTROL}});
 
     const int pretend_fraction = 0;
     // reveal a starting area
-    gs.world.value().at_ref_normalized(HexCoords::from_axial(1, 1)).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+    gs.world.at_ref_normalized(HexCoords::from_axial(1, 1)).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
     for(auto c : HexCoords::from_axial(1, 1).neighbours()) {
-        gs.world.value().at_ref_normalized(c).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+        gs.world.at_ref_normalized(c).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
     }
 
     Camera3D camera;
@@ -116,11 +125,11 @@ void raylib_simple_example(GameState &gs) {
     camera.target = Vector3{0, 0, 0};
     camera.position = Vector3{0, 10.0f, 5.0f};
 
-    gs.inputMgr.registerAction({"Test Left",[&]{camera.position.x -= 1;camera.target.x -= 1;}}, {KEY_LEFT,{}});
-    gs.inputMgr.registerAction({"Test Right",[&]{camera.position.x += 1;camera.target.x += 1; }}, {KEY_RIGHT,{}});
+    gs.as.inputMgr.registerAction({"Test Left",[&]{camera.position.x -= 1;camera.target.x -= 1;}}, {KEY_LEFT,{}});
+    gs.as.inputMgr.registerAction({"Test Right",[&]{camera.position.x += 1;camera.target.x += 1; }}, {KEY_RIGHT,{}});
 
     // this should be done per model, but for now, we don't even have a proper tile type, so it's fine
-    const auto model_bb = GetModelBoundingBox(gs.resourceStore.m_hex_table.at(0).model);
+    const auto model_bb = GetModelBoundingBox(gs.as.resourceStore.m_hex_table.at(0).model);
     const auto model_size = Vector3Subtract(model_bb.max, model_bb.min);
     const float scale = 2.0f / std::max({model_size.x, model_size.y, model_size.z});
     
@@ -128,11 +137,6 @@ void raylib_simple_example(GameState &gs) {
     Vector3 mouse_grab_point;
 
     while(!WindowShouldClose()) {
-        if (!gs.world.has_value()) {
-            log::error("World has no value at the start\n");
-            break;
-        }
-
         const auto frame_start = std::chrono::steady_clock::now();
         // for some reason, dragging around is unstable
         // i know, that the logical cursor is slightly delayed, but still, it should be delayed
@@ -158,15 +162,18 @@ void raylib_simple_example(GameState &gs) {
         const auto bottom_right = intersect_with_ground_plane(GetMouseRay({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera), 0.0f);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-            auto& tiledata = gs.world.value().at_ref_normalized(hovered_coords);
+            auto& tiledata = gs.world.at_ref_normalized(hovered_coords);
             if (tiledata.getFractionVisibility(pretend_fraction) != HexData::Visibility::NONE) {
                 for(const auto hc : hovered_coords.neighbours()) {
-                    auto rt = gs.world.value().at_ref_abnormal(hc);
+                    auto rt = gs.world.at_ref_abnormal(hc);
                     if (rt.has_value()) {
                         rt.value().get().setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
                     }
                 }
             }
+        }
+        if (IsKeyPressed(KEY_U)) {
+            gs.units.insert_or_assign(hovered_coords, UnitData{});
         }
 
         // this is temporary and also terrible, and also shows the bad frustom in all_within_unscaled_quad
@@ -174,11 +181,11 @@ void raylib_simple_example(GameState &gs) {
         Vector3 direction = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
         camera.position = Vector3Add(camera.position, Vector3Scale(direction, scroll));
 
-        gs.inputMgr.handleKeyboard();
+        gs.as.inputMgr.handleKeyboard();
 
         const auto light_logic_end = std::chrono::steady_clock::now();
 
-        const auto to_render = gs.world.value().all_within_unscaled_quad(
+        const auto to_render = gs.world.all_within_unscaled_quad(
             {top_left.x, top_left.z},    
             {top_right.x, top_right.z},    
             {bottom_left.x, bottom_left.z},    
@@ -194,25 +201,30 @@ void raylib_simple_example(GameState &gs) {
             {
                 DrawGrid(10, 1.0f);
                 for(const auto coords : to_render) {
-                    auto hx = gs.world.value().at(coords);
+                    auto hx = gs.world.at(coords);
                     auto tint = WHITE;
                     if (coords == hovered_coords) {
                         tint = BLUE;
                     }
                     const auto [tx, ty] = coords.to_world_unscaled();
                     if (hx.tileid != -1 && hx.getFractionVisibility(pretend_fraction) != HexData::Visibility::NONE) {
-                        DrawModelEx(gs.resourceStore.m_hex_table.at(hx.tileid).model, Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
+                        DrawModelEx(gs.as.resourceStore.m_hex_table.at(hx.tileid).model, Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
+                    }
+
+                    auto unitit = gs.units.find(coords);
+                    if (unitit != gs.units.end()) {
+                        DrawSphere(Vector3{tx, 0.3, ty}, 0.4, GREEN);
                     }
                 }
             }
             EndMode3D();
             DrawText("Left Click Drag to move camera, Right Click to reveal area", 150, 10, 20, BLACK);
-            if (gs.debug) {
+            if (gs.as.debug) {
                 DrawFPS(10, 10);
                 DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
-                const auto hovered_tile = gs.world.value().at(hovered_coords);
+                const auto hovered_tile = gs.world.at(hovered_coords);
                 if (hovered_tile.tileid != -1) {
-                    DrawText(gs.resourceStore.m_hex_table.at(hovered_tile.tileid).name.c_str(), 10, 50, 20, BLACK);
+                    DrawText(gs.as.resourceStore.m_hex_table.at(hovered_tile.tileid).name.c_str(), 10, 50, 20, BLACK);
                 }
             }
         }
@@ -239,13 +251,13 @@ int main () {
     InitWindow(640, 480, "Strategy game");
     SetTargetFPS(60);
     try {
-        GameState gs;
+        AppState as;
         const auto cwd = std::filesystem::current_path();
         
         auto modulepath = cwd;
         modulepath.append("resources/modules");
 
-        auto module_load_candidates = gs.moduleLoader.ListCandidateModules(modulepath);
+        auto module_load_candidates = as.moduleLoader.ListCandidateModules(modulepath);
         // for the time this just disables nothing, but change the lambda to start banning stuff
         module_load_candidates.erase(
             std::remove_if(module_load_candidates.begin(), module_load_candidates.end(), 
@@ -265,33 +277,34 @@ int main () {
                 [&](issues::ExtraneousElement i) { std::cout << "There was an extre element in the module definition in module " << i.mod << " at " << i.in << '\n';  },
                 [&](issues::RequiredModuleNotFound i) { std::cout << "Module " << i.requiree << " requires the module " << i.required << ", but it was not found\n"; any_issues_critical = true; },
                 [&](issues::InvalidFile i) { std::cout << "Module " << i.what_module << " tried to load the file " << i.filepath << ", but it could not be loaded\n"; any_issues_critical = true; },
-                [&](issues::MissingField i) { std::cout << "Module " << i.what_module << " provided a definition of \"" << i.what_def << "\", but it was missing the field " << i.fieldname << "\n"; any_issues_critical = true; },
+                [&](issues::MissingField i) { std::cout << "Module " << i.what_module << " provided a definition of " << i.what_def << ", but it was missing the field " << i.fieldname << "\n"; any_issues_critical = true; },
                 [&](issues::InvalidKey i) { std::cout << "Module " << i.what_module << " provided an invalid key when defining " << i.what_def << '\n'; any_issues_critical = true; }
             }, issue);
         };
 
-        for(const auto& issue : gs.moduleLoader.LoadModules(module_load_candidates, gs.inputMgr, gs.resourceStore)) {
+        for(const auto& issue : as.moduleLoader.LoadModules(module_load_candidates, as.inputMgr, as.resourceStore)) {
             deal_with_an_issue(issue);
         }
         if (any_issues_critical) {
             return 0;
         }
 
-        for(const auto& issue : gs.resourceStore.LoadModuleResources(gs.moduleLoader)) {
+        for(const auto& issue : as.resourceStore.LoadModuleResources(as.moduleLoader)) {
             deal_with_an_issue(issue);
         }
         if (any_issues_critical) {
             return 0;
         }
 
-        auto def_gen_id = gs.resourceStore.FindGeneratorIndex("default");
+        auto def_gen_id = as.resourceStore.FindGeneratorIndex("default");
         if (def_gen_id == -1) {
             log::debug("No world generator found, abroting");
             abort();
         }
         log::debug("BEFORE WORLDGEN");
-        auto& def_gen = gs.resourceStore.m_worldgens.at(def_gen_id);
+        auto& def_gen = as.resourceStore.m_worldgens.at(def_gen_id);
         log::debug("JUST BEFORE WORLDGEN");
+        GameState gs (as);
         gs.RunWorldgen(*def_gen, {});
         log::debug("AFTER WORLDGEN");
         raylib_simple_example(gs);
