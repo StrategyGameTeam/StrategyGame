@@ -25,7 +25,6 @@ else()
     message(FATAL_ERROR "Unknown platform, we have no clue what file to copy")
 endif()
 
-
 # Copy required Lua files
 file(
     COPY "$ENV{LUA_DIR}/jit"
@@ -61,6 +60,9 @@ add_executable(
     stratgametest
         src/main.cpp
         src/hex.cpp
+        src/input.cpp
+        src/module.cpp
+        src/resources.cpp
         src/state_stack.cpp
         src/state_base.cpp
         src/test_state.cpp
@@ -85,8 +87,22 @@ target_link_libraries(
         ${LUA_LIB_FILES}
 )
 
-add_custom_command(
-    TARGET stratgametest POST_BUILD
+# enable compiler flags
+if (MSVC)
+    # warning level 4 and all warnings as errors
+    target_compile_options(stratgametest PRIVATE /W4)
+else()
+    # lots of warnings and all warnings as errors
+    target_compile_options(stratgametest PRIVATE -Wall -Wextra -pedantic)
+endif()
+
+
+add_custom_target(
+    copy_resources ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/ $<TARGET_FILE_DIR:stratgametest>/resources
+)
+
+add_dependencies(
+    stratgametest copy_resources
 )
