@@ -17,10 +17,7 @@ private:
     const int pretend_fraction = 0;
 
 	Vector3 mouse_grab_point;
-	Ray mouse_ray;
-	Vector3 mouse_on_ground;
 	HexCoords hovered_coords;
-	std::vector<HexCoords> to_render;
 
 	Test_State(State_Stack& arg_state_stack_handle);
 

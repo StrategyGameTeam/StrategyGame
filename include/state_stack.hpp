@@ -18,7 +18,8 @@ public:
 
 	enum class STATES
 	{
-		MAIN_MENU, TEST
+		MAIN_MENU, 
+		TEST
 	};
 
 private:
@@ -27,7 +28,7 @@ private:
 	{ 
 		PUSH,
 		POP,
-		CLEAR,
+		CLEAR
 	};
 
 	typedef State_Base* (*Factory)(State_Stack&);
@@ -48,6 +49,7 @@ private:
 	void draw();
 
 public:
+
     InputMgr inputMgr;
     bool debug = true;
     ResourceStore resourceStore;
