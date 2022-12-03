@@ -2,19 +2,19 @@
 
 #include "state_stack.hpp"
 #include "hex.hpp"
+#include "game_state.hpp"
 
 class Test_State final : public State_Base
 {
 private:
 
 	Camera3D camera;
+    GameState gs;
 
-	CylinderHexWorld<char> world;
-	
-	std::array<Model, 5> hex_models;
 	BoundingBox model_bb;
 	Vector3 model_size;
 	float scale;
+    const int pretend_fraction = 0;
 
 	Vector3 mouse_grab_point;
 	Ray mouse_ray;

@@ -8,6 +8,9 @@
 #include "raylib.h"
 
 #include "state_base.hpp"
+#include "input.hpp"
+#include "resources.hpp"
+#include "module.hpp"
 
 class State_Stack
 {
@@ -45,6 +48,10 @@ private:
 	void draw();
 
 public:
+    InputMgr inputMgr;
+    bool debug = true;
+    ResourceStore resourceStore;
+    ModuleLoader moduleLoader;
 
 	State_Stack(STATES arg_init_state);
 

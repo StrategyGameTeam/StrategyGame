@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <variant>
 #include <string>
+#include "utils.hpp"
 
 struct Module;
 

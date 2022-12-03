@@ -216,7 +216,7 @@ std::optional<std::filesystem::path> ResourceStore::ResolveModuleFile(const Modu
 }
 
 int ResourceStore::FindProductIndex(std::string name) {
-    const auto it = std::ranges::find_if(m_product_table, [&](const ProductKind& prod) {
+    const auto it = std::find_if(m_product_table.begin(), m_product_table.end(), [&](const ProductKind& prod) {
         return prod.name == name;
     });
 
@@ -225,7 +225,7 @@ int ResourceStore::FindProductIndex(std::string name) {
 }
 
 int ResourceStore::FindHexIndex(std::string name) {
-    const auto it = std::ranges::find_if(m_hex_table, [&](const HexKind& hex) {
+    const auto it = std::find_if(m_hex_table.begin(), m_hex_table.end(), [&](const HexKind& hex) {
         return hex.name == name;
     });
 
