@@ -2,8 +2,8 @@
 
 Chatlog::Chatlog(float arg_x, float arg_y, int arg_character_limit) :
 	Writebox(arg_x + width * 0.5f, arg_y + height * 0.5f, arg_character_limit),
-	chat_box(arg_x, arg_y, width, height),
-	chat_box_hitbox(arg_x, arg_y - height, width, height) {}
+	chat_box{arg_x, arg_y, width, height},
+	chat_box_hitbox{arg_x, arg_y - height, width, height} {}
 
 bool Chatlog::is_active() const
 {
@@ -37,7 +37,7 @@ void Chatlog::handle_events(int key_pressed)
 
 void Chatlog::draw() const
 {
-	DrawRectanglePro(chat_box, Vector2(0, chat_box.height), 0.f, (is_active() ? Color(0, 0, 0, 200) : Color(0, 0, 0, 100)));
+	DrawRectanglePro(chat_box, Vector2{0, chat_box.height}, 0.f, (is_active() ? Color{0, 0, 0, 200} : Color{0, 0, 0, 100}));
 	
 	for (int a = 0; a < std::min(static_cast<int>(texts.size()), max_visible_lines); ++a)
 		DrawText(texts[texts.size() - 1 - a].data(), chat_box.x, chat_box.y - 20 * (1 + a), font_size, (is_active() ? WHITE : LIGHTGRAY));	

@@ -1,8 +1,8 @@
 #include "gui_writebox.hpp"
 
 Writebox::Writebox(float arg_x, float arg_y, int arg_character_limit) :
-	box(arg_x, arg_y, width, height),
-	box_hitbox(arg_x - width * 0.5f, arg_y - height * 0.5f, width, height),
+	box{arg_x, arg_y, width, height},
+	box_hitbox{arg_x - width * 0.5f, arg_y - height * 0.5f, width, height},
 	character_limit(arg_character_limit) {}
 
 bool Writebox::is_active() const
@@ -43,7 +43,7 @@ void Writebox::handle_events(int key_pressed)
 
 void Writebox::draw() const
 {
-	DrawRectanglePro(box, Vector2(box.width * 0.5f, box.height * 0.5f), 0.f, (active ? Color(0, 0, 0, 200) : Color(0, 0, 0, 100)));
+	DrawRectanglePro(box, Vector2{box.width * 0.5f, box.height * 0.5f}, 0.f, (active ? Color{0, 0, 0, 200} : Color{0, 0, 0, 100}));
 
 	std::string_view text_view = text.c_str();
 	text_view.remove_prefix(prefix);

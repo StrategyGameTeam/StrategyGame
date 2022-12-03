@@ -1,4 +1,5 @@
 #include "main_menu_state.hpp"
+#include <iostream>
 
 Main_Menu_State::Main_Menu_State(State_Stack& arg_state_stack_handle) :
 	State_Base(arg_state_stack_handle),
