@@ -1,4 +1,5 @@
 #define RAYMATH_IMPLEMENTATION
+
 #include <iostream>
 #include "raylib.h"
 #include "raymath.h"
