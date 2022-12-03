@@ -20,7 +20,7 @@ State_Stack::State_Stack(STATES arg_init_state)
     const auto cwd = std::filesystem::current_path();
 
     auto modulepath = cwd;
-    modulepath.append("resources/modules");
+    modulepath.append("resources/modules"); // TODO: DLA MNIE MUSI KONIECZNIE BYC \\ ZAMIAST / WIEC ZROBCIE TO ZALEZNE OD PLATFORMY XD
 
     auto module_load_candidates = moduleLoader.ListCandidateModules(modulepath);
     // for the time this just disables nothing, but change the lambda to start banning stuff
