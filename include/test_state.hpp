@@ -7,9 +7,6 @@ class Test_State final : public State_Base
 {
 private:
 
-	// Yeah that's a lot of data members. If we're not expecting this to improve, we can
-	// consider merging the three operations (handle events, update, render) into one. But that's tbd
-
 	Camera3D camera;
 
 	CylinderHexWorld<char> world;
@@ -34,6 +31,7 @@ public:
 	void handle_events() override;
 	void update(double dt) override;
 	void render() override;
+	void adjust_to_window() override;
 
 	static State_Base* make_state(State_Stack& app_handle);
 
