@@ -10,6 +10,10 @@ Test_State::Test_State(State_Stack& arg_state_stack_handle) :
 	camera.target = Vector3{ 0, 0, 0 };
 	camera.position = Vector3{ 0, 10.0f, 5.0f };
 
+	hovered_coords.q = 0;
+	hovered_coords.r = 0;
+	hovered_coords.s = 0;
+
 	hex_models = { {
 		LoadModel("resources/hexes/grass_forest.obj"),
 		LoadModel("resources/hexes/grass_hill.obj"),
@@ -99,6 +103,8 @@ void Test_State::render()
 	DrawFPS(10, 10);
 	DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
 }
+
+void Test_State::adjust_to_window() {}
 
 State_Base* Test_State::make_state(State_Stack& state_stack_handle)
 {
