@@ -7,13 +7,13 @@
 State_Stack::State_Stack(STATES arg_init_state)
 {
 	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-	InitWindow(640, 480, "Strategy Game");
+	InitWindow(1200, 900, "Strategy Game");
 	SetTargetFPS(60);
 
 	factories.emplace(STATES::TEST, Test_State::make_state);
 	factories.emplace(STATES::MAIN_MENU, Main_Menu_State::make_state);
 
-	states_stack.emplace(factories.find(arg_init_state)->second(*this), arg_init_state);
+	states_stack.emplace_back(factories.find(arg_init_state)->second(*this), arg_init_state);
 }
 
 void State_Stack::perform_queued_actions()
@@ -29,19 +29,19 @@ void State_Stack::perform_queued_actions()
 		{
 			auto state = states_queue.front();
 			states_queue.pop();
-			states_stack.emplace(factories.find(state)->second(*this), state);
+			states_stack.emplace_back(factories.find(state)->second(*this), state);
 			break;
 		}
 		case(ACTIONS::POP):
 		{
 			if (!states_stack.empty())
-				states_stack.pop();
+				states_stack.pop_back();
 			break;
 		}
 		case(ACTIONS::CLEAR):
 		{
 			while (!states_stack.empty())
-				states_stack.pop();
+				states_stack.pop_back();
 			break;
 		}
 		}
@@ -53,7 +53,11 @@ void State_Stack::handle_events()
 	if (WindowShouldClose())
 		this->request_clear();
 
-	states_stack.top().first->handle_events();
+	if (IsWindowResized())
+		for (const auto& state : states_stack)
+			state.first->adjust_to_window();
+
+	states_stack.back().first->handle_events();
 }
 
 void State_Stack::update()
@@ -61,7 +65,7 @@ void State_Stack::update()
 	while (time_passed > time_per_frame)
 	{
 		time_passed -= time_per_frame;
-		states_stack.top().first->update(time_per_frame);
+		states_stack.back().first->update(time_per_frame);
 	}
 }
 
@@ -70,7 +74,7 @@ void State_Stack::draw()
 	BeginDrawing();
 	ClearBackground(WHITE);
 
-	states_stack.top().first->render();
+	states_stack.back().first->render();
 
 	EndDrawing();
 }
