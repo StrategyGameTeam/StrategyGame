@@ -1,5 +1,4 @@
 #include "main_menu_state.hpp"
-#include <iostream> // do wyjebania pozniej
 
 Main_Menu_State::Main_Menu_State(State_Stack& arg_state_stack_handle) :
 	State_Base(arg_state_stack_handle),
@@ -32,9 +31,6 @@ void Main_Menu_State::handle_events()
 	test_writebox.handle_events(key_pressed);
 	if (IsKeyPressed(KEY_ENTER) && test_writebox.is_active())
 		std::cout << "Tekst do poslania w swiat: " << test_writebox.confirm() << "\n";
-
-	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-		std::cout << "DEBUG: MOUSE: " << GetMousePosition().x << " " << GetMousePosition().y << "\n";
 
 	test_chatlog.handle_events(key_pressed);
 }
