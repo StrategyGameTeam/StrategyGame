@@ -30,6 +30,6 @@ public:
 	void render() override;
 	void adjust_to_window() override;
 
-	static State_Base* make_state(State_Stack& app_handle);
+	[[nodiscard]] static State_Base* make_state(State_Stack& app_handle);
 
 };

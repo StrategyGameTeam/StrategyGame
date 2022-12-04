@@ -21,9 +21,6 @@ private:
 	mutable int prefix = 0;
 	bool active = false;
 
-	Writebox(const Writebox&) = delete;
-	Writebox(Writebox&&) = delete;
-
 public:
 
 	Writebox(float arg_x, float arg_y, int arg_character_limit = 100);

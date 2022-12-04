@@ -45,7 +45,7 @@ public:
 		return selected;
 	}
 
-	void set_function(void(arg)(Args...))
+	void set_function(std::function<void(Args...)> arg)
 	{
 		function = arg;
 	}

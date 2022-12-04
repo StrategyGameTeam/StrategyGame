@@ -35,7 +35,7 @@ private:
 
 	double time_passed = 0.;
 
-	inline static double time_per_frame = 1. / 60.;
+	inline static const double time_per_frame = 1. / 60.;
 
 	std::map<STATES, Factory> factories;
 

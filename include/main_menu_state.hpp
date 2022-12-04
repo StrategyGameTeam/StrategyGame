@@ -26,6 +26,6 @@ public:
 
 	void adjust_to_window();
 
-	static State_Base* make_state(State_Stack& app_handle);
+	[[nodiscard]] static State_Base* make_state(State_Stack& app_handle);
 
 };
