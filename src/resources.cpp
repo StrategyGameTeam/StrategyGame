@@ -34,8 +34,8 @@ std::vector<issues::AnyIssue> ResourceStore::LoadModuleResources(ModuleLoader& m
 template <sol::type Wanted> [[noreturn]] static void DoThrowBadType (ModuleLoader& ml, auto obj, std::string_view field, std::string what_def = "???")  {
     throw issues::AnyIssue(issues::InvalidType{
         .what_module = ml.GetModule(obj.lua_state()).value().get().name_unsafe(),
+        .what_def = std::string(what_def),
         .what_field = std::string(field),
-        .what_def = what_def,
         .what_type_wanted = Wanted,
         .what_type_provided = obj.get_type()
     });
