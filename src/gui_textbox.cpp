@@ -18,3 +18,11 @@ void Textbox::draw() const
 	DrawTextPro(GetFontDefault(), text.c_str(), Vector2{box.x, box.y},
 		Vector2{text_size.x * 0.5f, text_size.y * 0.5f}, 0.f, font_size, 0.f, BLACK);
 }
+
+float Textbox::getWidth() const {
+    return box.width;
+}
+
+float Textbox::getHeight() const {
+    return box.height;
+}

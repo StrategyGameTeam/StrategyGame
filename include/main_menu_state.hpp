@@ -3,8 +3,8 @@
 #include "state_stack.hpp"
 #include "gui_button.hpp"
 #include "gui_textbox.hpp"
-#include "gui_writebox.hpp" // do wyjebania pozniej
-#include "gui_chatlog.hpp" // do wyjebania pozniej
+#include "connection.hpp"
+#include "gui_writebox.hpp"
 
 class Main_Menu_State final : public State_Base
 {
@@ -15,8 +15,9 @@ private:
 	Textbox game_name;
 	Button<State_Stack&> play_button;
 	Button<State_Stack&> exit_button;
-	Writebox test_writebox; // do wyjebania pozniej
-	Chatlog test_chatlog; // do wyjebania pozniej
+	Writebox connection_addr_writebox;
+	Writebox game_id_writebox;
+	Writebox nickname_writebox;
 
 public:
 

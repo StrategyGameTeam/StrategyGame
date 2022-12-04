@@ -20,4 +20,6 @@ public:
 	void set_position(float x, float y);
 	void draw() const;
 
+    float getWidth() const;
+    float getHeight() const;
 };
