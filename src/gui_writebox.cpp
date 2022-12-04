@@ -45,7 +45,7 @@ void Writebox::draw() const
 {
 	DrawRectanglePro(box, Vector2{box.width * 0.5f, box.height * 0.5f}, 0.f, (active ? Color{0, 0, 0, 200} : Color{0, 0, 0, 100}));
 
-	std::string_view text_view = text.c_str();
+	std::string_view text_view = text;
 	text_view.remove_prefix(prefix);
 	while (auto text_size = MeasureTextEx(GetFontDefault(), text_view.data(), font_size, 0.f).x > box.width - 40)
 	{

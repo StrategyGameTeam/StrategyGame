@@ -27,7 +27,7 @@ void Chatlog::handle_events(int key_pressed)
 		set_active(true);
 
 	if (IsKeyPressed(KEY_ENTER))
-		if (std::string result = std::move(confirm()); !result.empty())
+		if (std::string result = confirm(); !result.empty())
 		{
 			texts.push_back(std::move(result));
 			if (texts.size() > max_remembered_lines)
@@ -41,7 +41,6 @@ void Chatlog::draw() const
 	
 	for (int a = 0; a < std::min(static_cast<int>(texts.size()), max_visible_lines); ++a)
 		DrawText(texts[texts.size() - 1 - a].data(), chat_box.x, chat_box.y - 20 * (1 + a), font_size, (is_active() ? WHITE : LIGHTGRAY));	
-
 
 	Writebox::draw();
 }

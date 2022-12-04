@@ -23,14 +23,14 @@ Test_State::Test_State(State_Stack& arg_state_stack_handle) :
 
     auto def_gen_id = state_stack_handle.resourceStore.FindGeneratorIndex("default");
     if (def_gen_id == -1) {
-        log::debug("No world generator found, abroting");
+        logger::debug("No world generator found, abroting");
         abort();
     }
-    log::debug("BEFORE WORLDGEN");
+    logger::debug("BEFORE WORLDGEN");
     auto& def_gen = state_stack_handle.resourceStore.m_worldgens.at(def_gen_id);
-    log::debug("JUST BEFORE WORLDGEN");
+    logger::debug("JUST BEFORE WORLDGEN");
     gs.RunWorldgen(state_stack_handle.moduleLoader, *def_gen, {});
-    log::debug("AFTER WORLDGEN");
+    logger::debug("AFTER WORLDGEN");
 
     // reveal a starting area
     gs.world.value().at_ref_normalized(HexCoords::from_axial(1, 1)).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
@@ -39,7 +39,7 @@ Test_State::Test_State(State_Stack& arg_state_stack_handle) :
     }
 
     if (!gs.world.has_value()) {
-        log::error("World has no value at the start\n");
+        logger::error("World has no value at the start\n");
         return;
     }
 }
