@@ -2,20 +2,20 @@
 #include "utils.hpp"
 
 ResourceStore::~ResourceStore() {
-    log::debug("UNLOADING RESOURCES");
+    logger::debug("UNLOADING RESOURCES");
 
-    log::debug("UNLOADING TEXTURES");
+    logger::debug("UNLOADING TEXTURES");
     for(auto& def : m_product_table) {
         UnloadTexture(def.texture);
         UnloadImage(def.image);
     }
 
-    log::debug("UNLOADING MODELS");
+    logger::debug("UNLOADING MODELS");
     for(auto& def : m_hex_table) {
         UnloadModel(def.model);
     }
 
-    log::debug("UNLOADING DONE");
+    logger::debug("UNLOADING DONE");
 }
 
 std::vector<ResourceIssues> ResourceStore::LoadModuleResources(ModuleLoader& ml) {
@@ -76,7 +76,7 @@ void ResourceStore::LoadHexes(const Module &mod, std::vector<ResourceIssues> &is
     sol::optional<sol::table> hexes = mod.module_root_object["declarations"]["hexes"];
     if (!hexes.has_value()) return; // nothing to do, no products defined
     for(const auto& [_, rtab] : hexes.value()) {
-        log::debug("LoadHexes loop start");
+        logger::debug("LoadHexes loop start");
         HexKind def;
         if (rtab.get_type() != sol::type::table) {
             issues.push_back(issues::InvalidType{

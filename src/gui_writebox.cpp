@@ -47,7 +47,7 @@ void Writebox::draw() const
 
 	std::string_view text_view = text;
 	text_view.remove_prefix(prefix);
-	while (auto text_size = MeasureTextEx(GetFontDefault(), text_view.data(), font_size, 0.f).x > box.width - 40)
+	while (auto text_size = MeasureTextEx(GetFontDefault(), std::string(text_view).c_str(), font_size, 0.f).x > box.width - 40)
 	{
 		++prefix;
 		text_view.remove_prefix(1);
