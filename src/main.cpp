@@ -12,9 +12,16 @@
 #include "input.hpp"
 #include "resources.hpp"
 #include "units.hpp"
+#include "slot_map.h"
 
+// Since we need to have different elements of our state at different times, i decided to split them up into layers
+// Their creation should loosely follow the operation of the game by the user
+// An now, the description of those layers
+// 
+// AppState - True globals, things that are bound to the process. Inputs, Lua VMs, External library/device resources should reside here
+// -> GameState - Things than concern the session of gameplay, but are not specific to a single player. True world state, true unit state, turn timing
+// -> PlayerState - Anything that the player interacts with. UI Element Data, Rendering structures, Selections
 
-// I have added too much fields to that, since there is more than a single "progress point" in loading of the game
 struct AppState {
     InputMgr inputMgr;
     bool debug = true;
@@ -25,7 +32,7 @@ struct AppState {
 struct GameState {
     AppState& as;
     CylinderHexWorld<HexData> world;
-    std::unordered_map<HexCoords, UnitData> units;
+    dod::slot_map<std::pair<HexCoords, UnitData>> units;
 
     GameState(AppState& as) : as(as) {}
 
@@ -96,6 +103,11 @@ struct GameState {
             std::cerr << "World Gen failed: " << e.what() << '\n';
         }
     };
+};
+
+struct PlayerState {
+    GameState& gs;
+    decltype(gs.units.emplace()) selected_unit;
 };
 
 Vector3 intersect_with_ground_plane (const Ray ray, float plane_height) {
