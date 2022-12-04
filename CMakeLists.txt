@@ -25,7 +25,6 @@ else()
     message(FATAL_ERROR "Unknown platform, we have no clue what file to copy")
 endif()
 
-
 # Copy required Lua files
 file(
     COPY "$ENV{LUA_DIR}/jit"
@@ -71,8 +70,15 @@ add_executable(
         src/hex.cpp
         src/input.cpp
         src/module.cpp
+        src/resources.cpp
+        src/state_stack.cpp
+        src/state_base.cpp
+        src/test_state.cpp
+        src/main_menu_state.cpp
+        src/gui_chatlog.cpp
+        src/gui_textbox.cpp
+        src/gui_writebox.cpp
         src/connection.cpp
-        src/ui_input.cpp
 )
 
 target_include_directories(
@@ -92,15 +98,25 @@ target_link_libraries(
 )
 
 add_executable(
-    server
+        server
         server/main.cpp
 )
 
 target_link_libraries(
-    server
+        server
         PRIVATE
         uvw
 )
+
+# enable compiler flags
+if (MSVC)
+    # warning level 4 and all warnings as errors
+    target_compile_options(stratgametest PRIVATE /W4)
+else()
+    # lots of warnings and all warnings as errors
+    target_compile_options(stratgametest PRIVATE -Wall -Wextra -pedantic)
+endif()
+
 
 add_custom_target(
     copy_resources ALL

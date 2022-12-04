@@ -18,6 +18,12 @@ HexCoords HexCoords::from_axial(int q, int r) {
     return HexCoords{q, r, -q-r};
 }
 
+HexCoords HexCoords::from_offset(int col, int row) {
+    const auto q = col - (row - (row&1)) / 2;
+    const auto r = row;
+    return from_axial(q, r);
+}
+
 bool HexCoords::operator== (const HexCoords& other) const {
     return q == other.q && r == other.r && s == other.s;
 };

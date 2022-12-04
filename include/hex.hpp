@@ -6,7 +6,6 @@
 #include <optional>
 #include <raymath.h>
 #include <random>
-#include <sol/sol.hpp>
 
 /*
 Some notes about what the code means.
@@ -21,6 +20,7 @@ So, for example:
 
 struct HexCoords;
 struct EdgeCoords;
+struct HexData;
 
 // Operators to get offsets from a cell. They are Left and Right combined with Up, Down, or just
 HexCoords operator "" _LU (unsigned long long x);
@@ -71,6 +71,40 @@ struct HexCoords {
     static HexCoords rounded_to_hex(float q, float r, float s);
     static HexCoords from_world_unscaled(float x, float y);
     static std::vector<HexCoords> make_line(const HexCoords from, const HexCoords to);
+    static HexCoords from_offset(int col, int row);
+};
+
+struct HexData {
+    int tileid = -1;
+    uint_least32_t visibility_flags = 0; // this implies max factions to be 16, as this is the max number of fractions this flag can fit
+    int owner_faction = -1;
+    int structure_atop = -1;
+    std::array<int, 6> structure_edges = {-1};
+    int upgrade_atop = -1;
+    std::array<int, 6> upgrade_edges = {-1};
+
+    enum class Visibility {
+        NONE = 0,
+        FOG = 1,
+        NORMAL = 2,
+        SUPERIOR = 3
+    };
+
+    Visibility getFractionVisibility (int fraction) {
+        return (Visibility)((visibility_flags & (0b11 << (fraction * 2))) >> (fraction * 2));
+    }
+
+    void setFractionVisibility (int fraction, Visibility vis) {
+        visibility_flags |= (int)vis << (fraction * 2);
+    }
+
+    void overrideVisibility (decltype(visibility_flags) val) {
+        visibility_flags = val;
+    }
+
+    void resetVisibility () {
+        visibility_flags = 0;
+    }
 };
 
 struct EdgeCoords {
@@ -88,33 +122,7 @@ struct CylinderHexWorld {
     CylinderHexWorld (int width, int height, HexT default_hex, HexT empty_hex)
         : width(width), height(height), empty_hex(empty_hex)
     {
-        data.resize((width)*(height), default_hex); 
-    }
-
-    void DEV_MapGenerator(sol::protected_function f) {
-        std::random_device rd;
-        std::mt19937 mt (rd());
-        sol::protected_function_result res = f(mt(), width, height);
-        
-        if (!res.valid()) {
-            std::cerr << "ERROR: " << res.get<sol::string_view>() << '\n'; 
-        }
-
-        sol::table t = res.get<sol::table>();
-
-        const auto tsize = t.size();
-        for(size_t x = 1; x <= tsize; x++) {
-            sol::table intable = t[x];            
-            const auto isize = intable.size();
-            for(size_t y = 1; y <= isize; y++) {
-                int value = intable[y];
-                at_ref_normalized(HexCoords::from_axial(x-1, y-1)) = value;
-            }
-        }
-    }
-
-    void InjectSymbols(sol::state &lua) {
-        lua.set_function("DEV_MapGenerator", &CylinderHexWorld<HexT>::DEV_MapGenerator, this);
+        data.resize((width)*(height), default_hex);
     }
 
     HexCoords normalized_coords (const HexCoords abnormal) const {
