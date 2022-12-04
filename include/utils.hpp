@@ -1,7 +1,7 @@
 #pragma once
 #include <iostream>
 
-namespace log {
+namespace logger {
     void impl_anyprint (auto&) {}
     void impl_anyprint (auto& output, auto& out, auto& ... rest) {
         output << out << ' ';
