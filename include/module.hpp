@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <variant>
 #include <string>
+#include "utils.hpp"
 
 struct Module;
 
@@ -90,7 +91,7 @@ struct ModuleLoader {
         // Load and run Lua
         for(const auto& modpath : module_paths) {
             try {
-                log::info("Starting to load ", modpath.string());
+                logger::info("Starting to load ", modpath.string());
                 const auto entry_point = modpath / "mod.lua";
                 if (!std::filesystem::is_regular_file(entry_point)) {
                     issues.push_back(issues::InvalidPath{.path = entry_point.string() });

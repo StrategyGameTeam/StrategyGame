@@ -2,20 +2,20 @@
 #include "utils.hpp"
 
 ResourceStore::~ResourceStore() {
-    log::debug("UNLOADING RESOURCES");
+    logger::debug("UNLOADING RESOURCES");
 
-    log::debug("UNLOADING TEXTURES");
+    logger::debug("UNLOADING TEXTURES");
     for(auto& def : m_product_table) {
         UnloadTexture(def.texture);
         UnloadImage(def.image);
     }
 
-    log::debug("UNLOADING MODELS");
+    logger::debug("UNLOADING MODELS");
     for(auto& def : m_hex_table) {
         UnloadModel(def.model);
     }
 
-    log::debug("UNLOADING DONE");
+    logger::debug("UNLOADING DONE");
 }
 
 std::vector<ResourceIssues> ResourceStore::LoadModuleResources(ModuleLoader& ml) {
@@ -76,7 +76,7 @@ void ResourceStore::LoadHexes(const Module &mod, std::vector<ResourceIssues> &is
     sol::optional<sol::table> hexes = mod.module_root_object["declarations"]["hexes"];
     if (!hexes.has_value()) return; // nothing to do, no products defined
     for(const auto& [_, rtab] : hexes.value()) {
-        log::debug("LoadHexes loop start");
+        logger::debug("LoadHexes loop start");
         HexKind def;
         if (rtab.get_type() != sol::type::table) {
             issues.push_back(issues::InvalidType{
@@ -216,7 +216,7 @@ std::optional<std::filesystem::path> ResourceStore::ResolveModuleFile(const Modu
 }
 
 int ResourceStore::FindProductIndex(std::string name) {
-    const auto it = std::ranges::find_if(m_product_table, [&](const ProductKind& prod) {
+    const auto it = std::find_if(m_product_table.begin(), m_product_table.end(), [&](const ProductKind& prod) {
         return prod.name == name;
     });
 
@@ -225,7 +225,7 @@ int ResourceStore::FindProductIndex(std::string name) {
 }
 
 int ResourceStore::FindHexIndex(std::string name) {
-    const auto it = std::ranges::find_if(m_hex_table, [&](const HexKind& hex) {
+    const auto it = std::find_if(m_hex_table.begin(), m_hex_table.end(), [&](const HexKind& hex) {
         return hex.name == name;
     });
 

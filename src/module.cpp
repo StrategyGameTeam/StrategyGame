@@ -2,7 +2,7 @@
 #include "utils.hpp"
 
 ModuleLoader::~ModuleLoader() {
-    log::debug("MODULE LOADER DESCTUCTOR");
+    logger::debug("MODULE LOADER DESCTUCTOR");
 }
 
 void ModuleLoader::InjectSymbols(sol::state& lua) {
