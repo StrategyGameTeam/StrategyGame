@@ -1,19 +1,14 @@
 #include <chrono>
 
 #include "state_stack.hpp"
-#include "test_state.hpp"
-#include "main_menu_state.hpp"
 
-State_Stack::State_Stack(STATES arg_init_state)
+State_Stack::State_Stack(Factory initial_factory)
 {
 	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 	InitWindow(1200, 900, "Strategy Game");
 	SetTargetFPS(60);
 
-	factories.emplace(STATES::TEST, Test_State::make_state);
-	factories.emplace(STATES::MAIN_MENU, Main_Menu_State::make_state);
-
-	states_stack.emplace_back(factories.find(arg_init_state)->second(*this), arg_init_state);
+	states_stack.emplace_back(initial_factory(*this));
 
     inputMgr.registerAction({"Toggle Debug Screen",[&] { debug = !debug; }}, {KEY_Q,{KEY_LEFT_CONTROL}});
 
@@ -73,9 +68,8 @@ void State_Stack::perform_queued_actions()
 		{
 		case(ACTIONS::PUSH):
 		{
-			auto state = states_queue.front();
+            states_stack.emplace_back(std::move(states_queue.front()));
 			states_queue.pop();
-			states_stack.emplace_back(factories.find(state)->second(*this), state);
 			break;
 		}
 		case(ACTIONS::POP):
@@ -101,9 +95,9 @@ void State_Stack::handle_events()
 
 	if (IsWindowResized())
 		for (const auto& state : states_stack)
-			state.first->adjust_to_window();
+			state->adjust_to_window();
 
-	states_stack.back().first->handle_events();
+	states_stack.back()->handle_events();
 }
 
 void State_Stack::update()
@@ -111,7 +105,7 @@ void State_Stack::update()
 	while (time_passed > time_per_frame)
 	{
 		time_passed -= time_per_frame;
-		states_stack.back().first->update(time_per_frame);
+		states_stack.back()->update(time_per_frame);
 	}
 }
 
@@ -120,15 +114,9 @@ void State_Stack::draw()
 	BeginDrawing();
 	ClearBackground(WHITE);
 
-	states_stack.back().first->render();
+	states_stack.back()->render();
 
 	EndDrawing();
-}
-
-void State_Stack::request_push(STATES state_id)
-{
-	actions_queue.emplace(ACTIONS::PUSH);
-	states_queue.emplace(state_id);
 }
 
 void State_Stack::request_pop()

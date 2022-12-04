@@ -14,14 +14,6 @@
 
 class State_Stack
 {
-public:
-
-	enum class STATES
-	{
-		MAIN_MENU, 
-		TEST
-	};
-
 private:
 
 	enum class ACTIONS
@@ -37,10 +29,8 @@ private:
 
 	inline static const double time_per_frame = 1. / 60.;
 
-	std::map<STATES, Factory> factories;
-
-	std::vector<std::pair<std::unique_ptr<State_Base>, STATES>> states_stack;
-	std::queue<STATES> states_queue;
+	std::vector<std::unique_ptr<State_Base>> states_stack;
+	std::queue<std::unique_ptr<State_Base>> states_queue;
 	std::queue<ACTIONS> actions_queue;
 
 	void perform_queued_actions();
@@ -55,9 +45,13 @@ public:
     ResourceStore resourceStore;
     ModuleLoader moduleLoader;
 
-	State_Stack(STATES arg_init_state);
+	State_Stack(Factory initial_factory);
 
-	void request_push(STATES state_id);
+    template<typename T, typename ...Args>
+	void request_push(Args ...args){
+        actions_queue.emplace(ACTIONS::PUSH);
+        states_queue.emplace(std::make_unique<T>(*this, args...));
+    }
 	void request_pop();
 	void request_clear();
 

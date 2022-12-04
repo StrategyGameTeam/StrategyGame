@@ -1,4 +1,5 @@
 #include "main_menu_state.hpp"
+#include "test_state.hpp"
 #include <iostream>
 
 Main_Menu_State::Main_Menu_State(State_Stack& arg_state_stack_handle) :
@@ -29,7 +30,7 @@ Main_Menu_State::Main_Menu_State(State_Stack& arg_state_stack_handle) :
                 //todo: error
                 return;
             }
-			state_stack.request_push(State_Stack::STATES::TEST);
+			state_stack.request_push<Test_State>();
 		});
 
 	exit_button.set_function([](State_Stack& state_stack)

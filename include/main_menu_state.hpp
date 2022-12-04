@@ -10,8 +10,6 @@ class Main_Menu_State final : public State_Base
 {
 private:
 
-	Main_Menu_State(State_Stack& arg_state_stack_handle);
-
 	Textbox game_name;
 	Button<State_Stack&> play_button;
 	Button<State_Stack&> exit_button;
@@ -20,6 +18,8 @@ private:
 	Writebox nickname_writebox;
 
 public:
+
+    Main_Menu_State(State_Stack& arg_state_stack_handle);
 
 	void handle_events() override;
 	void update(double dt) override;
