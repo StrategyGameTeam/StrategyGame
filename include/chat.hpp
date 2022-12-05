@@ -1,6 +1,6 @@
 #pragma once
 #include <iostream>
-#include "connection.hpp"
+#include "../common/connection.hpp"
 #include "game.hpp"
 
 
@@ -9,26 +9,6 @@ struct ChatMessage {
     std::chrono::system_clock::time_point tp;
 };
 
-struct ChatPacket {
-    static const std::string packetId;
-    std::string msg;
-
-    void serialize(PacketWriter &wr) const {
-        wr.writeString(msg);
-        wr.writeInt(2050);
-        wr.writeInt(-4567);
-    }
-
-    static ChatPacket deserialize(PacketReader &reader){
-        auto data = reader.readString();
-        auto i1 = reader.readInt();
-        auto i2 = reader.readInt();
-        std::cout << "Int 1: " << i1 << std::endl;
-        std::cout << "Int 2: " << i2 << std::endl;
-        return ChatPacket{data};
-    }
-};
-const std::string ChatPacket::packetId = "chat";
 
 struct Chat {
     std::vector<ChatMessage> chat_messages;

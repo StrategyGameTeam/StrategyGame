@@ -1,7 +1,11 @@
 #include "test_state.hpp"
+#include "packets.hpp"
+#include "game_packets.hpp"
 
-Test_State::Test_State(State_Stack& arg_state_stack_handle) :
-	State_Base(arg_state_stack_handle)
+Test_State::Test_State(State_Stack& arg_state_stack_handle, std::shared_ptr<Connection> connection, std::shared_ptr<GameState> gs) :
+	State_Base(arg_state_stack_handle),
+    gs(std::move(gs)),
+    connection(std::move(connection))
 {
     BeginDrawing();
     ClearBackground(BLACK);
@@ -21,27 +25,27 @@ Test_State::Test_State(State_Stack& arg_state_stack_handle) :
     model_size = Vector3Subtract(model_bb.max, model_bb.min);
     scale = 2.0f / std::max({model_size.x, model_size.y, model_size.z});
 
-    auto def_gen_id = state_stack_handle.resourceStore.FindGeneratorIndex("default");
-    if (def_gen_id == -1) {
-        logger::debug("No world generator found, abroting");
-        abort();
-    }
-    logger::debug("BEFORE WORLDGEN");
-    auto& def_gen = state_stack_handle.resourceStore.m_worldgens.at(def_gen_id);
-    logger::debug("JUST BEFORE WORLDGEN");
-    gs.RunWorldgen(state_stack_handle.moduleLoader, *def_gen, {});
-    logger::debug("AFTER WORLDGEN");
 
-    // reveal a starting area
-    gs.world.value().at_ref_normalized(HexCoords::from_axial(1, 1)).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
-    for(auto c : HexCoords::from_axial(1, 1).neighbours()) {
-        gs.world.value().at_ref_normalized(c).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
-    }
-
-    if (!gs.world.has_value()) {
+    if (!this->gs->world.has_value()) {
         logger::error("World has no value at the start\n");
         return;
     }
+
+    this->connection->registerPacketHandler(ProxyDataPacket::packetId, [&](PacketReader &reader) {
+        auto packet = ProxyDataPacket::deserialize(reader);
+        this->gs->is_host = packet.is_host;
+        this->gs->players = packet.players;
+        std::cout << "Proxy data updated: " << packet.players.size() << " players" << std::endl;
+    });
+    this->connection->registerPacketHandler(InitializePlayerRequestPacket::packetId, [&](PacketReader &reader){
+        auto packet = InitializePlayerRequestPacket::deserialize(reader);
+        std::cout << "INITIALIZE PLAYER: " << packet.player << std::endl;
+        this->connection->write(packet.player, WorldUpdatePacket{});
+    });
+    this->connection->registerPacketHandler(WorldUpdatePacket::packetId, [&](PacketReader &reader){
+        auto packet = WorldUpdatePacket::deserialize(reader);
+        std::cout << "UPDATE WORLD" << std::endl;
+    });
 }
 
 Vector3 Test_State::intersect_with_ground_plane(const Ray ray, float plane_height)
@@ -53,6 +57,7 @@ Vector3 Test_State::intersect_with_ground_plane(const Ray ray, float plane_heigh
 
 void Test_State::handle_events()
 {
+    connection->handleTasks();
     // for some reason, dragging around is unstable
     // i know, that the logical cursor is slightly delayed, but still, it should be delayed
     // equally for all of the frame. The exact pointthat is selected will be slightly changing,
@@ -74,12 +79,12 @@ void Test_State::handle_events()
     }
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-        auto& tiledata = gs.world.value().at_ref_normalized(hovered_coords);
-        if (tiledata.getFractionVisibility(pretend_fraction) != HexData::Visibility::NONE) {
+        auto& tiledata = gs->world.value().at_ref_normalized(hovered_coords);
+        if (tiledata.getFractionVisibility(gs->pretend_fraction) != HexData::Visibility::NONE) {
             for (const auto hc : hovered_coords.neighbours()) {
-                auto rt = gs.world.value().at_ref_abnormal(hc);
+                auto rt = gs->world.value().at_ref_abnormal(hc);
                 if (rt.has_value()) {
-                    rt.value().get().setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+                    rt.value().get().setFractionVisibility(gs->pretend_fraction, HexData::Visibility::SUPERIOR);
                 }
             }
         }
@@ -88,6 +93,10 @@ void Test_State::handle_events()
 
 void Test_State::update(double dt) 
 {
+}
+
+void DrawTextAlignRight(const char* text, int x, int y, int font_size, Color color){
+    DrawText(text, x - MeasureText(text, font_size), y, font_size, color);
 }
 
 void Test_State::render()
@@ -108,7 +117,7 @@ void Test_State::render()
 
     const auto light_logic_end = std::chrono::steady_clock::now();
 
-    const auto to_render = gs.world.value().all_within_unscaled_quad
+    const auto to_render = gs->world.value().all_within_unscaled_quad
     (
         {top_left.x, top_left.z},
         {top_right.x, top_right.z},
@@ -124,13 +133,13 @@ void Test_State::render()
         {
             DrawGrid(10, 1.0f);
             for(const auto coords : to_render) {
-                auto hx = gs.world.value().at(coords);
+                auto hx = gs->world.value().at(coords);
                 auto tint = WHITE;
                 if (coords == hovered_coords) {
                     tint = BLUE;
                 }
                 const auto [tx, ty] = coords.to_world_unscaled();
-                if (hx.tileid != -1 && hx.getFractionVisibility(pretend_fraction) != HexData::Visibility::NONE) {
+                if (hx.tileid != -1 && hx.getFractionVisibility(gs->pretend_fraction) != HexData::Visibility::NONE) {
                     DrawModelEx(state_stack_handle.resourceStore.m_hex_table.at(hx.tileid).model, Vector3{tx, 0, ty}, Vector3{0, 1, 0}, 0.0, Vector3{scale, scale, scale}, tint);
                 }
             }
@@ -140,11 +149,13 @@ void Test_State::render()
         if (state_stack_handle.debug) {
             DrawFPS(10, 10);
             DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r), 10, 30, 20, BLACK);
-            const auto hovered_tile = gs.world.value().at(hovered_coords);
+            const auto hovered_tile = gs->world.value().at(hovered_coords);
             if (hovered_tile.tileid != -1) {
                 DrawText(state_stack_handle.resourceStore.m_hex_table.at(hovered_tile.tileid).name.c_str(), 10, 50, 20, BLACK);
             }
         }
+        DrawTextAlignRight(gs->game_id.c_str(), GetScreenWidth(), 0, 20, BLACK);
+        DrawTextAlignRight(gs->nickname.c_str(), GetScreenWidth(), 20, 20, BLACK);
     }
 
     const auto rendering_end = std::chrono::steady_clock::now();
@@ -161,8 +172,3 @@ void Test_State::render()
 }
 
 void Test_State::adjust_to_window() {}
-
-State_Base* Test_State::make_state(State_Stack& state_stack_handle)
-{
-	return new Test_State(state_stack_handle);
-}

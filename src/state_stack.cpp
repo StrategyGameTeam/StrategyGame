@@ -134,7 +134,7 @@ void State_Stack::run()
 	while (!states_stack.empty())
 	{
 		auto t1 = std::chrono::high_resolution_clock::now();
-		
+
 		handle_events();
 		update();
 		draw();

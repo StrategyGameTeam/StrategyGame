@@ -1,9 +1,16 @@
+#pragma once
+
 #include "input.hpp"
 #include "hex.hpp"
 #include "resources.hpp"
 
 struct GameState {
     std::optional<CylinderHexWorld<HexData>> world;
+    const int pretend_fraction = 0;
+    std::vector<std::string> players;
+    bool is_host;
+    std::string nickname;
+    std::string game_id;
 
     void RunWorldgen(ModuleLoader &moduleLoader, WorldGen& gen, std::unordered_map<std::string, std::variant<double, std::string, bool>> options) {
         using sol::as_function;

@@ -75,10 +75,13 @@ add_executable(
         src/state_base.cpp
         src/test_state.cpp
         src/main_menu_state.cpp
+        src/loading_state.cpp
         src/gui_chatlog.cpp
         src/gui_textbox.cpp
         src/gui_writebox.cpp
         src/connection.cpp
+        src/packet_ids.cpp
+        src/packet_ids_game.cpp
 )
 
 target_include_directories(
@@ -86,6 +89,7 @@ target_include_directories(
         PRIVATE
             $ENV{LUA_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
 )
 
 target_link_libraries(
@@ -100,6 +104,13 @@ target_link_libraries(
 add_executable(
         server
         server/main.cpp
+        src/packet_ids.cpp
+)
+
+target_include_directories(
+        server
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
 )
 
 target_link_libraries(

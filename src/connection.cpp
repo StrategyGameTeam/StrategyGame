@@ -1,4 +1,4 @@
-#include "connection.hpp"
+#include "../common/connection.hpp"
 #include <iostream>
 #include <thread>
 
@@ -44,16 +44,9 @@ void Connection::onClose(const uvw::CloseEvent &evt) {
 }
 
 void Connection::onData(const uvw::DataEvent &evt) {
-    PacketReader reader((char *) evt.data.get(), evt.length);
-    auto packetId = reader.readString();
-    if (!m_handlers.contains(packetId)) {
-        std::cout << "Handler not found for packet: " << packetId << std::endl;
-        return;
-    }
-    auto [start, end] = m_handlers.equal_range(packetId);
-    for (auto i = start; i != end; i++) {
-        i->second(reader);
-    }
+    std::vector<char> data;
+    std::copy_n(evt.data.get(), evt.length, std::back_inserter(data));
+    tasks.push(PacketReader{data});
 }
 
 void Connection::onConnected(const uvw::ConnectEvent &evt) {
