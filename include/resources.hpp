@@ -11,7 +11,7 @@ struct ProductKind {
     Texture texture;
 
     ~ProductKind() {
-        log::debug(__func__);
+        logger::debug(__func__);
     }
 };
 
@@ -24,7 +24,7 @@ struct HexKind {
     Model model;
 
     ~HexKind() {
-        log::debug(__func__);
+        logger::debug(__func__);
     }
 };
 
@@ -49,7 +49,7 @@ struct WorldGen {
 
     ~WorldGen() {
         generator.abandon(); // module loader might be already dead, so no luck trying to unregister from lua vms
-        log::debug(__func__);
+        logger::debug(__func__);
     }
 };
 

@@ -1,7 +1,7 @@
 #pragma once
 #include <iostream>
 
-namespace log {
+namespace logger {
     void impl_anyprint (auto&) {}
     void impl_anyprint (auto& output, auto& out, auto& ... rest) {
         output << out << ' ';
@@ -25,3 +25,7 @@ namespace log {
         std::cerr << '\n';
     }
 };
+
+template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+

@@ -2,20 +2,20 @@
 #include "utils.hpp"
 
 ResourceStore::~ResourceStore() {
-    log::debug("UNLOADING RESOURCES");
+    logger::debug("UNLOADING RESOURCES");
 
-    log::debug("UNLOADING TEXTURES");
+    logger::debug("UNLOADING TEXTURES");
     for(auto& def : m_product_table) {
         UnloadTexture(def.texture);
         UnloadImage(def.image);
     }
 
-    log::debug("UNLOADING MODELS");
+    logger::debug("UNLOADING MODELS");
     for(auto& def : m_hex_table) {
         UnloadModel(def.model);
     }
 
-    log::debug("UNLOADING DONE");
+    logger::debug("UNLOADING DONE");
 }
 
 std::vector<issues::AnyIssue> ResourceStore::LoadModuleResources(ModuleLoader& ml) {
@@ -84,6 +84,7 @@ void WrapLoadingForIssues(ModuleLoader& ml, std::vector<issues::AnyIssue>& issue
         issues.emplace_back(issues::UnknownError{.message = "???"});
     }
 }
+
 
 void ResourceStore::LoadProducts(ModuleLoader& ml, const Module &mod, std::vector<issues::AnyIssue> &issues) {
     auto GetU = GetUtils(ml, "product");
@@ -265,7 +266,7 @@ std::filesystem::path ResourceStore::ResolveModuleFileThrows(const Module &m, st
 }
 
 int ResourceStore::FindProductIndex(std::string name) {
-    const auto it = std::ranges::find_if(m_product_table, [&](const ProductKind& prod) {
+    const auto it = std::find_if(m_product_table.begin(), m_product_table.end(), [&](const ProductKind& prod) {
         return prod.name == name;
     });
 
@@ -274,7 +275,7 @@ int ResourceStore::FindProductIndex(std::string name) {
 }
 
 int ResourceStore::FindHexIndex(std::string name) {
-    const auto it = std::ranges::find_if(m_hex_table, [&](const HexKind& hex) {
+    const auto it = std::find_if(m_hex_table.begin(), m_hex_table.end(), [&](const HexKind& hex) {
         return hex.name == name;
     });
 
