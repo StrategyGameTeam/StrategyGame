@@ -6,6 +6,7 @@
 #include <optional>
 #include <raymath.h>
 #include <random>
+#include "connection.hpp"
 
 /*
 Some notes about what the code means.
@@ -104,6 +105,36 @@ struct HexData {
 
     void resetVisibility () {
         visibility_flags = 0;
+    }
+
+    void serialize(PacketWriter &wr) const {
+        wr.writeInt(tileid);
+        wr.writeUInt(visibility_flags);
+        wr.writeInt(owner_faction);
+        wr.writeInt(structure_atop);
+        for (const auto &item: structure_edges)
+            wr.writeInt(item);
+        wr.writeInt(upgrade_atop);
+        for (const auto &item: upgrade_edges)
+            wr.writeInt(item);
+
+    }
+
+    static HexData deserialize(PacketReader &reader){
+        int tileid = reader.readInt();
+        uint_least32_t visibility_flags = reader.readUInt();
+        int owner_faction = reader.readInt();
+        int structure_atop = reader.readInt();
+        std::array<int, 6> structure_edges = {-1};
+        for(int & structure_edge : structure_edges){
+            structure_edge = reader.readInt();
+        }
+        int upgrade_atop = reader.readInt();
+         std::array<int, 6> upgrade_edges = {-1};
+        for(int & upgrade_edge : upgrade_edges){
+            upgrade_edge = reader.readInt();
+        }
+        return HexData{tileid, visibility_flags, owner_faction, structure_atop, structure_edges, upgrade_atop, upgrade_edges};
     }
 };
 

@@ -41,7 +41,7 @@ Test_State::Test_State(State_Stack& arg_state_stack_handle, std::shared_ptr<Conn
     this->connection->registerPacketHandler(InitializePlayerRequestPacket::packetId, [&](PacketReader &reader){
         auto packet = InitializePlayerRequestPacket::deserialize(reader);
         std::cout << "INITIALIZE PLAYER: " << packet.player << std::endl;
-        this->connection->write(packet.player, WorldUpdatePacket{});
+        this->connection->write(packet.player, WorldUpdatePacket{this->gs->world.value()});
     });
     this->connection->registerPacketHandler(WorldUpdatePacket::packetId, [&](PacketReader &reader){
         auto packet = WorldUpdatePacket::deserialize(reader);

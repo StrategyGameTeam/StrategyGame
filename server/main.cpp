@@ -53,6 +53,7 @@ int main() {
     std::cout << "Server running at: " << addr << ":" << port << std::endl;
     loop->run();
 }
+std::vector<char> recv_buffer{};
 
 void acceptClient(uvw::TCPHandle &srv) {
     //Allocate new TCPHandle for a client
@@ -63,15 +64,21 @@ void acceptClient(uvw::TCPHandle &srv) {
         std::cout << "[" << client.peer().ip << "]" << " disconnected " << std::endl;
         client.close();
     });
-    client->on<uvw::DataEvent>([](const uvw::DataEvent &evt, uvw::TCPHandle &client) {
-        std::cout << "[" << client.peer().ip << "]" << " Data reveived: ";
-        std::cout.write(evt.data.get(), evt.length);
-        std::cout << std::endl;
+    client->on<uvw::DataEvent>([&](const uvw::DataEvent &evt, uvw::TCPHandle &client) {
+        std::cout << "[" << client.peer().ip << "]" << " Received bytes: " << evt.length << std::endl;
 
-        std::vector<char> data;
-        std::copy_n(evt.data.get(), evt.length, std::back_inserter(data));
+        std::copy_n(evt.data.get(), evt.length, std::back_inserter(recv_buffer));
+        std::cout << "buffer size: " << recv_buffer.size() << std::endl;
+        if(recv_buffer.size() < 4){
+            return;
+        }
 
-        auto reader = PacketReader(data);
+        auto reader = PacketReader(recv_buffer);
+        auto size = reader.readUInt();
+        if(recv_buffer.size() < size){
+            std::cout << "missing data size: " << size - recv_buffer.size() << std::endl;
+            return;
+        }
         auto packetId = reader.readString();
         auto destination = reader.readString();
 
@@ -94,13 +101,15 @@ void acceptClient(uvw::TCPHandle &srv) {
                         }
                         if (client_data->game_id == player_data->game_id &&
                             ((destination.empty() && player_data->is_host) || player_data->nickname == destination)) {
-                            h.write(evt.data.get(), evt.length);
+                            writeLargeData(h.shared_from_this(), recv_buffer.data(), recv_buffer.size());
                         }
                     },
                     [](auto &&) {}
             });
 
         }
+        recv_buffer.erase(recv_buffer.begin(), recv_buffer.begin() + size);
+        std::cout << "cleaned buffer size: " << recv_buffer.size() << std::endl;
     });
 
     //Accept client
@@ -145,6 +154,7 @@ void handleLogin(uvw::TCPHandle &handle, PacketReader &reader) {
     for (const auto &item: players) {
         auto data = item->data<HandleData>();
         writePacket(item, ProxyDataPacket{data->is_host, playerNames, game_id});
+        writePacket(item, ChatPacket{"Player " + packet.nickname + " joined!"});
         if (data->is_host && data->nickname != packet.nickname) {
             std::cout << "Initializing player: " << packet.nickname << " host: " << data->nickname << std::endl;
             //send update to host

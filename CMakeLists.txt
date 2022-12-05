@@ -105,6 +105,7 @@ add_executable(
         server
         server/main.cpp
         src/packet_ids.cpp
+        src/connection.cpp
 )
 
 target_include_directories(

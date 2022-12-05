@@ -4,7 +4,7 @@
 #include <thread>
 #include <queue>
 
-const std::string HOST = "";
+const std::string HOST;
 
 struct PacketReader {
     std::vector<char> buf;
@@ -22,10 +22,17 @@ struct PacketReader {
         return buf[idx++];
     }
     int readInt(){
-        auto c1 = readChar();
-        auto c2 = readChar();
-        auto c3 = readChar();
-        auto c4 = readChar();
+        uint8_t c1 = readChar();
+        uint8_t c2 = readChar();
+        uint8_t c3 = readChar();
+        uint8_t c4 = readChar();
+        return (c1 << 24) | (c2 << 16) | (c3 << 8) | c4;
+    }
+    unsigned int readUInt(){
+        uint8_t c1 = readChar();
+        uint8_t c2 = readChar();
+        uint8_t c3 = readChar();
+        uint8_t c4 = readChar();
         return (c1 << 24) | (c2 << 16) | (c3 << 8) | c4;
     }
 
@@ -34,9 +41,10 @@ struct PacketReader {
     }
 };
 
+static constexpr int BUFFER_SIZE = 2*1024*1024;
 struct PacketWriter {
-    std::unique_ptr<char*> buf = std::make_unique<char*>(new char[64*1024]);
-    unsigned long len = 0;
+    std::unique_ptr<char*> buf = std::make_unique<char*>(new char[BUFFER_SIZE]);
+    unsigned long len = 4;
 
     void writeString(const std::string &str){
         for (const auto c: str){
@@ -46,8 +54,17 @@ struct PacketWriter {
     }
     void writeChar(char c){
         (*buf)[len++] = c;
+        if(len > BUFFER_SIZE){
+            throw "packet writer buffer overflow";
+        }
     }
     void writeInt(int n){
+        writeChar((n >> 24) & 0xff);
+        writeChar((n >> 16) & 0xff);
+        writeChar((n >> 8) & 0xff);
+        writeChar(n & 0xff);
+    }
+    void writeUInt(unsigned int n){
         writeChar((n >> 24) & 0xff);
         writeChar((n >> 16) & 0xff);
         writeChar((n >> 8) & 0xff);
@@ -64,6 +81,7 @@ concept Packet = requires(T ext, PacketWriter &wr) {
     { ext.packetId, ext.serialize(wr) };
 };
 
+void writeLargeData(const std::shared_ptr<uvw::TCPHandle> &handle, char* buf, unsigned long len);
 
 template<Packet T>
 void writePacket(const std::shared_ptr<uvw::TCPHandle> &handle, const std::string &destination, const T &packet) {
@@ -71,7 +89,12 @@ void writePacket(const std::shared_ptr<uvw::TCPHandle> &handle, const std::strin
     wr.writeString(packet.packetId);
     wr.writeString(destination);
     packet.serialize(wr);
-    handle->write(*wr.buf, wr.len);
+    (*wr.buf)[0] = (char)((wr.len >> 24) & 0xff);
+    (*wr.buf)[1] = (char)((wr.len >> 16) & 0xff);
+    (*wr.buf)[2] = (char)((wr.len >> 8) & 0xff);
+    (*wr.buf)[3] = (char)(wr.len & 0xff);
+    writeLargeData(handle, *wr.buf, wr.len);
+
 }
 template<Packet T>
 void writePacket(const std::shared_ptr<uvw::TCPHandle> &handle, const T &packet) {
@@ -84,7 +107,7 @@ struct Connection{
     std::shared_ptr<uvw::Loop> m_loop;
     std::shared_ptr<uvw::TCPHandle> m_tcp;
     std::thread m_read_thread;
-    std::queue<PacketReader> tasks;
+    std::vector<char> data;
 
     std::unordered_map<std::string, std::function<void(PacketReader &)>> m_handlers;
 
@@ -113,24 +136,35 @@ struct Connection{
     }
 
     void handleTasks(){
-        while(tasks.size() > 0){
-            auto reader = tasks.front();
-            tasks.pop();
-            while(reader.idx < reader.buf.size()) {
-                auto packetId = reader.readString();
-                auto destination = reader.readString();
-                std::cout << "Received packet with id: " << packetId << " and destination: " << destination
-                          << std::endl;
-                if (!m_handlers.contains(packetId)) {
-                    std::cout << "Handler not found for packet: " << packetId << std::endl;
-                    continue;
-                }
-                auto fhandler = m_handlers.find(packetId);
-                if (fhandler != m_handlers.end()) {
-                    fhandler->second(reader);
-                }
-            }
+        if(data.size() < 4){
+            return;
         }
+
+        auto reader = PacketReader(data);
+        auto size = reader.readUInt();
+        if(size < 4){
+            std::cout << "Illegal state, data size: " << data.size() << std::endl;
+            return; //illegal state
+        }
+        if(data.size() < size){
+            //std::cout << "missing data size: " << size - data.size() << std::endl;
+            return;
+        }
+
+        auto packetId = reader.readString();
+        auto destination = reader.readString();
+        std::cout << "Received packet with id: " << packetId << " and destination: " << destination
+                  << std::endl;
+        if (!m_handlers.contains(packetId)) {
+            std::cout << "Handler not found for packet: " << packetId << std::endl;
+            data.erase(data.begin(), data.begin() + size);
+            return;
+        }
+        auto fhandler = m_handlers.find(packetId);
+        if (fhandler != m_handlers.end()) {
+            fhandler->second(reader);
+        }
+        data.erase(data.begin(), data.begin() + size);
     }
 
 };

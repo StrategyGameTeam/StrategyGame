@@ -9,6 +9,7 @@ State_Stack::State_Stack(Factory initial_factory)
 	SetTargetFPS(60);
 
 	states_stack.emplace_back(initial_factory(*this));
+    actions_queue.push(ACTIONS::INIT);
 
     inputMgr.registerAction({"Toggle Debug Screen",[&] { debug = !debug; }}, {KEY_Q,{KEY_LEFT_CONTROL}});
 
@@ -82,6 +83,12 @@ void State_Stack::perform_queued_actions()
 		{
 			while (!states_stack.empty())
 				states_stack.pop_back();
+			break;
+		}
+		case(ACTIONS::INIT):
+		{
+            for (const auto& state : states_stack)
+                state->adjust_to_window();
 			break;
 		}
 		}

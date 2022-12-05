@@ -25,7 +25,7 @@ Loading_State::Loading_State(State_Stack& arg_state_stack_handle,
         }
         gs->is_host = packet.is_host;
         gs->players = packet.players;
-        gs->nickname = nickname;
+        gs->nickname = this->nickname;
         gs->game_id = packet.game_id;
         if(gs->is_host){
             auto def_gen_id = state_stack_handle.resourceStore.FindGeneratorIndex("default");
@@ -49,6 +49,7 @@ Loading_State::Loading_State(State_Stack& arg_state_stack_handle,
     connection->registerPacketHandler(WorldUpdatePacket::packetId, [&](PacketReader &reader){
         auto packet = WorldUpdatePacket::deserialize(reader);
         std::cout << "UPDATE WORLD" << std::endl;
+        this->gs->world = std::move(packet.world);
     });
     connection->write(LoginPacket{game_id, nickname});
 

@@ -20,7 +20,8 @@ private:
 	{ 
 		PUSH,
 		POP,
-		CLEAR
+		CLEAR,
+        INIT
 	};
 
 	typedef State_Base* (*Factory)(State_Stack&);

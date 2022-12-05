@@ -1,12 +1,22 @@
-#include "../common/connection.hpp"
+#include "connection.hpp"
 #include <iostream>
 #include <thread>
+
+void writeLargeData(const std::shared_ptr<uvw::TCPHandle> &handle, char* buf, unsigned long len){
+    unsigned int idx = 0;
+    while(idx < len){
+        unsigned int to_write = std::min(len - idx, 64*1024ul);
+        idx += handle->tryWrite(buf + idx, to_write);
+    }
+}
 
 Connection::Connection(const std::string &addr, unsigned int port) {
     this->m_addr = addr;
     this->m_port = port;
     this->m_loop = uvw::Loop::getDefault();
     this->m_tcp = this->m_loop->resource<uvw::TCPHandle>();
+    this->m_tcp->sendBufferSize(BUFFER_SIZE);
+    this->m_tcp->recvBufferSize(BUFFER_SIZE);
 
     this->m_tcp->on<uvw::ErrorEvent>([this](const auto &evt, auto &) {
         this->onError(evt);
@@ -44,9 +54,8 @@ void Connection::onClose(const uvw::CloseEvent &evt) {
 }
 
 void Connection::onData(const uvw::DataEvent &evt) {
-    std::vector<char> data;
     std::copy_n(evt.data.get(), evt.length, std::back_inserter(data));
-    tasks.emplace(data);
+    std::cout << "Buffer size: " << data.size() << std::endl;
 }
 
 void Connection::onConnected(const uvw::ConnectEvent &evt) {
