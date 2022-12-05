@@ -4,6 +4,7 @@
 #include "hex.hpp"
 #include "game_state.hpp"
 #include "connection.hpp"
+#include "gui_chatlog.hpp"
 
 class Test_State final : public State_Base
 {
@@ -11,6 +12,7 @@ private:
 
     std::shared_ptr<GameState> gs;
     std::shared_ptr<Connection> connection;
+    Chatlog chatlog;
 	Camera3D camera;
 
 	BoundingBox model_bb;

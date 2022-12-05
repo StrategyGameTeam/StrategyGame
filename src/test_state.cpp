@@ -5,7 +5,8 @@
 Test_State::Test_State(State_Stack& arg_state_stack_handle, std::shared_ptr<Connection> connection, std::shared_ptr<GameState> gs) :
 	State_Base(arg_state_stack_handle),
     gs(std::move(gs)),
-    connection(std::move(connection))
+    connection(std::move(connection)),
+    chatlog(0, 0)
 {
     BeginDrawing();
     ClearBackground(BLACK);
@@ -46,6 +47,16 @@ Test_State::Test_State(State_Stack& arg_state_stack_handle, std::shared_ptr<Conn
         auto packet = WorldUpdatePacket::deserialize(reader);
         std::cout << "UPDATE WORLD" << std::endl;
     });
+
+    chatlog.set_text_acceptor([&](std::string &msg){
+        this->connection->write(ChatPacket{msg});
+    });
+    this->connection->registerPacketHandler(ChatPacket::packetId, [&](PacketReader &reader){
+        auto packet = ChatPacket::deserialize(reader);
+        chatlog.add_text(packet.msg);
+    });
+
+    this->adjust_to_window();
 }
 
 Vector3 Test_State::intersect_with_ground_plane(const Ray ray, float plane_height)
@@ -58,6 +69,10 @@ Vector3 Test_State::intersect_with_ground_plane(const Ray ray, float plane_heigh
 void Test_State::handle_events()
 {
     connection->handleTasks();
+
+    auto key_pressed = GetCharPressed();
+    chatlog.handle_events(key_pressed);
+
     // for some reason, dragging around is unstable
     // i know, that the logical cursor is slightly delayed, but still, it should be delayed
     // equally for all of the frame. The exact pointthat is selected will be slightly changing,
@@ -156,6 +171,7 @@ void Test_State::render()
         }
         DrawTextAlignRight(gs->game_id.c_str(), GetScreenWidth(), 0, 20, BLACK);
         DrawTextAlignRight(gs->nickname.c_str(), GetScreenWidth(), 20, 20, BLACK);
+        chatlog.draw();
     }
 
     const auto rendering_end = std::chrono::steady_clock::now();
@@ -171,4 +187,6 @@ void Test_State::render()
     // std::cout << "TIME: TOTAL=" << total_time << "   RENDERPART=" << (double)(rendering_time)/(double)(total_time) << "   VISTESTPART=" << (double)(vis_test)/(double)(total_time) << '\n';
 }
 
-void Test_State::adjust_to_window() {}
+void Test_State::adjust_to_window() {
+    chatlog.set_position(5, GetScreenHeight() - chatlog.font_size - 10);
+}

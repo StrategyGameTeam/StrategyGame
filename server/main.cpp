@@ -10,7 +10,8 @@ constexpr const int port = 4242;
 
 void acceptClient(uvw::TCPHandle &srv);
 
-void broadcast(uvw::Loop &loop, char *data, unsigned int len);
+template<Packet T>
+void broadcast(uvw::Loop &loop, const T &packet);
 
 void handleLogin(uvw::TCPHandle &handle, PacketReader &reader);
 
@@ -74,21 +75,24 @@ void acceptClient(uvw::TCPHandle &srv) {
         auto packetId = reader.readString();
         auto destination = reader.readString();
 
+        auto client_data = client.data<HandleData>();
+
         if (packetId == LoginPacket::packetId) {
             handleLogin(client, reader);
         } else if (packetId == ChatPacket::packetId) {
-            broadcast(client.loop(), evt.data.get(), evt.length);
+            auto packet = ChatPacket::deserialize(reader);
+            auto msg = "[" + client_data->nickname + "] " + packet.msg;
+            broadcast(client.loop(), ChatPacket{msg});
         } else {
-            auto data = client.data<HandleData>();
 
-            std::cout << "Forwarding packet for game: " << data->game_id << " and player: " << destination << std::endl;
+            std::cout << "Forwarding packet for game: " << client_data->game_id << " and player: " << destination << std::endl;
             client.loop().walk(uvw::Overloaded{
                     [&](uvw::TCPHandle &h) {
                         auto player_data = h.data<HandleData>();
-                        if(player_data.get() == nullptr){
+                        if(player_data == nullptr){
                             return;
                         }
-                        if (data->game_id == player_data->game_id &&
+                        if (client_data->game_id == player_data->game_id &&
                             ((destination.empty() && player_data->is_host) || player_data->nickname == destination)) {
                             h.write(evt.data.get(), evt.length);
                         }
@@ -150,10 +154,11 @@ void handleLogin(uvw::TCPHandle &handle, PacketReader &reader) {
 
 }
 
-void broadcast(uvw::Loop &loop, char *data, unsigned int len) {
+template<Packet T>
+void broadcast(uvw::Loop &loop, const T &packet) {
     loop.walk(uvw::Overloaded{
             [&](uvw::TCPHandle &h) {
-                if (h.peer().port > 0) h.write(data, len);
+                if (h.peer().port > 0) writePacket(h.shared_from_this(), packet);
             },
             [](auto &&) {}
     });

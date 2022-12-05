@@ -46,7 +46,7 @@ void Connection::onClose(const uvw::CloseEvent &evt) {
 void Connection::onData(const uvw::DataEvent &evt) {
     std::vector<char> data;
     std::copy_n(evt.data.get(), evt.length, std::back_inserter(data));
-    tasks.push(PacketReader{data});
+    tasks.emplace(data);
 }
 
 void Connection::onConnected(const uvw::ConnectEvent &evt) {

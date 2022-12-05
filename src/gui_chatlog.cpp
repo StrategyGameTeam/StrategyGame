@@ -23,16 +23,15 @@ void Chatlog::handle_events(int key_pressed)
 {
 	Writebox::handle_events(key_pressed);
 
-	if (!is_active() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), chat_box_hitbox))
-		set_active(true);
+	if (!is_active() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), chat_box_hitbox)) {
+        set_active(true);
+    }
 
-	if (IsKeyPressed(KEY_ENTER))
-		if (std::string result = confirm(); !result.empty())
-		{
-			texts.push_back(std::move(result));
-			if (texts.size() > max_remembered_lines)
-				texts.pop_front();
-		}
+	if (IsKeyPressed(KEY_ENTER)) {
+        if (std::string result = confirm(); !result.empty()) {
+            text_acceptor(result);
+        }
+    }
 }
 
 void Chatlog::draw() const
@@ -43,4 +42,14 @@ void Chatlog::draw() const
 		DrawText(texts[texts.size() - 1 - a].data(), chat_box.x, chat_box.y - 20 * (1 + a), font_size, (is_active() ? WHITE : LIGHTGRAY));	
 
 	Writebox::draw();
+}
+
+void Chatlog::add_text(std::string &text) {
+    texts.push_back(std::move(text));
+    if (texts.size() > max_remembered_lines)
+        texts.pop_front();
+}
+
+void Chatlog::set_text_acceptor(std::function<void(std::string&)> func){
+    this->text_acceptor = std::move(func);
 }
