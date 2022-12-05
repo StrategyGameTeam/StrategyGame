@@ -11,7 +11,7 @@ constexpr const int port = 4242;
 void acceptClient(uvw::TCPHandle &srv);
 
 template<Packet T>
-void broadcast(uvw::Loop &loop, const T &packet);
+void broadcast(uvw::Loop &loop, std::string &game_id, const T &packet);
 
 void handleLogin(uvw::TCPHandle &handle, PacketReader &reader);
 
@@ -89,7 +89,7 @@ void acceptClient(uvw::TCPHandle &srv) {
         } else if (packetId == ChatPacket::packetId) {
             auto packet = ChatPacket::deserialize(reader);
             auto msg = "[" + client_data->nickname + "] " + packet.msg;
-            broadcast(client.loop(), ChatPacket{msg});
+            broadcast(client.loop(), client_data->game_id, ChatPacket{msg});
         } else {
 
             std::cout << "Forwarding packet for game: " << client_data->game_id << " and player: " << destination << std::endl;
@@ -114,7 +114,7 @@ void acceptClient(uvw::TCPHandle &srv) {
 
     //Accept client
     srv.accept(*client);
-    std::cout << "Client conntected: " << client->peer().ip << std::endl;
+    std::cout << "Client connected: " << client->peer().ip << std::endl;
     client->read();
 }
 
@@ -139,7 +139,7 @@ void handleLogin(uvw::TCPHandle &handle, PacketReader &reader) {
     handle.loop().walk(uvw::Overloaded{
             [&](uvw::TCPHandle &h) {
                 auto data = h.data<HandleData>();
-                if(data.get() == nullptr){
+                if(data == nullptr){
                     return;
                 }
                 if (data->game_id == game_id) {
@@ -165,10 +165,13 @@ void handleLogin(uvw::TCPHandle &handle, PacketReader &reader) {
 }
 
 template<Packet T>
-void broadcast(uvw::Loop &loop, const T &packet) {
+void broadcast(uvw::Loop &loop, std::string &game_id, const T &packet) {
     loop.walk(uvw::Overloaded{
             [&](uvw::TCPHandle &h) {
-                if (h.peer().port > 0) writePacket(h.shared_from_this(), packet);
+                auto data = h.data<HandleData>();
+                if (h.peer().port > 0 && data != nullptr && data->game_id == game_id) {
+                    writePacket(h.shared_from_this(), packet);
+                }
             },
             [](auto &&) {}
     });

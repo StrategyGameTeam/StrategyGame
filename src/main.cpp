@@ -3,7 +3,6 @@
 #define RAYMATH_IMPLEMENTATION
 
 #include "state_stack.hpp"
-#include "game_state.hpp"
 #include "main_menu_state.hpp"
 
 int main () {
