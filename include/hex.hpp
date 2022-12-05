@@ -72,6 +72,8 @@ struct HexCoords {
     static HexCoords from_world_unscaled(float x, float y);
     static std::vector<HexCoords> make_line(const HexCoords from, const HexCoords to);
     static HexCoords from_offset(int col, int row);
+    std::vector<HexCoords> ring_around(int range) const;
+    std::vector<HexCoords> spiral_around(int range) const;
 };
 
 namespace std {

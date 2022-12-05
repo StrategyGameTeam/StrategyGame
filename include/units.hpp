@@ -4,7 +4,9 @@
 
 struct BaseUnitData {
     int id;
+    int fraction;
     int health;
+    int vission_range = 1;
 };
 
 struct MilitaryUnit : public BaseUnitData {
@@ -31,6 +33,13 @@ struct UnitsOnTile {
     bool has_any () const {
         return military.has_value() || civilian.has_value() || special.has_value();
     }
+
+    template <UnitType Type>
+    auto& get_opt_unit() = delete;
+
+    template <> auto& get_opt_unit<UnitType::Millitary> () { return military; };
+    template <> auto& get_opt_unit<UnitType::Civilian> () { return civilian; };
+    template <> auto& get_opt_unit<UnitType::Special> () { return special; };
 };
 
 struct UnitStore {
@@ -44,8 +53,23 @@ struct UnitStore {
         m_store.insert(std::move(node));
     }
 
-    const auto& get_all_on_hex(HexCoords hc) {
+    auto& get_all_on_hex(HexCoords hc) {
         return m_store[hc]; // maybe return optional instead of just constructing?
+    }
+
+    bool is_selection_valid (std::pair<HexCoords, UnitType> selection) const {
+        auto [coord, type] = selection;
+        if (auto it = m_store.find(coord); it != m_store.end()) {
+            switch (type) {
+                case UnitType::Millitary:return it->second.military.has_value();
+                case UnitType::Civilian: return it->second.civilian.has_value();
+                case UnitType::Special: return it->second.special.has_value();
+                default:
+                case UnitType::Unspecified: return false;
+            }
+        } else {
+            return false;
+        }
     }
 
     // Returns true if putting the unit on the hex was successful, false if there was something there already 
@@ -92,5 +116,25 @@ struct UnitStore {
 
     void hard_override_unit_on_hex(HexCoords hc, SpecialUnit unit) {
         m_store[hc].special = unit;
+    }
+
+    void teleport_unit_militray (HexCoords start, HexCoords end) {
+        m_store[end].military = m_store[start].military;
+        m_store[start].military.reset();
+    }
+    void teleport_unit_civilian (HexCoords start, HexCoords end) {
+        m_store[end].civilian = m_store[start].civilian;
+        m_store[start].civilian.reset();
+    }
+    void teleport_unit_special (HexCoords start, HexCoords end) {
+        m_store[end].special = m_store[start].special;
+        m_store[start].special.reset();
+    }
+
+    template <UnitType Type>
+    void teleport_unit (HexCoords start, HexCoords end) {
+        if (start == end) return;
+        m_store[end].get_opt_unit<Type>() = m_store[start].get_opt_unit<Type>();
+        m_store[start].get_opt_unit<Type>().reset();
     }
 };

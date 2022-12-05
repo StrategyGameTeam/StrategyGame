@@ -54,6 +54,39 @@ std::array<HexCoords, 6> HexCoords::neighbours() const {
     };
 }
 
+std::vector<HexCoords> HexCoords::ring_around(int range) const {
+    if (range == 0) return {};    
+    std::vector<HexCoords> result;
+    result.reserve(range * 6);
+    for(int i = 0; i < range; i++) {
+        result.push_back(*this + hexLD(range) + hexR(i));
+        result.push_back(*this + hexRD(range) + hexRU(i));
+        result.push_back(*this + hexR(range) + hexLU(i));
+        result.push_back(*this + hexRU(range) + hexL(i));
+        result.push_back(*this + hexLU(range) + hexLD(i));
+        result.push_back(*this + hexL(range) + hexRD(i));
+    }
+    return result;
+}
+
+std::vector<HexCoords> HexCoords::spiral_around(int range) const {
+    if (range == 0) return {};    
+    std::vector<HexCoords> result;
+    result.reserve(1 + 3 * range * (range-1));
+    result.push_back(*this);
+    for(int r = 1; r <= range; r++) {
+        for(int i = 0; i < range; i++) {
+            result.push_back(*this + hexLD(r) + hexR(i));
+            result.push_back(*this + hexRD(r) + hexRU(i));
+            result.push_back(*this + hexR(r) + hexLU(i));
+            result.push_back(*this + hexRU(r) + hexL(i));
+            result.push_back(*this + hexLU(r) + hexLD(i));
+            result.push_back(*this + hexL(r) + hexRD(i));
+        }
+    } 
+    return result;
+}
+
 int HexCoords::distance (const HexCoords& to) const {
     const auto diff = *this - to;
     return std::max(std::abs(diff.q), std::max(std::abs(diff.r), std::abs(diff.s)));

@@ -14,6 +14,7 @@
 #include "resources.hpp"
 #include "units.hpp"
 #include "rendering_controller.hpp"
+#include <exception>
 
 // Since we need to have different elements of our state at different times, i decided to split them up into layers
 // Their creation should loosely follow the operation of the game by the user
@@ -36,6 +37,26 @@ struct GameState {
     UnitStore units;
 
     GameState(AppState& as) : as(as) {}
+
+    void UpdateVission(int fraction) {
+
+    }
+
+    template <UnitType UT>
+    void MoveUnit(HexCoords from, HexCoords to) {
+        auto munit = units.get_all_on_hex(from).get_opt_unit<UT>();
+        if (!munit.has_value()) {
+            return; // ! Maybe throw? Error is unhandled
+        }
+        auto unit = munit.value();
+        // TODO - reaveal along path
+        // TODO - allow this function to get the path
+        // TODO - does this function need to get the path? or is it good enough to just, pathfind in here?
+        units.teleport_unit<UT>(from, to);
+        for(const auto hc : to.spiral_around(unit.vission_range)) {
+            world.at_ref_normalized(hc).setFractionVisibility(unit.fraction, HexData::Visibility::SUPERIOR);
+        }
+    };
 
     void RunWorldgen(WorldGen& gen, std::unordered_map<std::string, std::variant<double, std::string, bool>> options) {
         using sol::as_function;
@@ -162,6 +183,7 @@ void raylib_simple_example(PlayerState &ps) {
 
     // For discriminating tile clicks vs dragging
     HexCoords click_start_coord;
+    Vector2 click_start_screen_pos;
 
     HideCursor();
 
@@ -179,6 +201,7 @@ void raylib_simple_example(PlayerState &ps) {
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             mouse_grab_point = mouse_on_ground;
             click_start_coord = hovered_coords;
+            click_start_screen_pos = mouse_position;
         }
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
             const auto grab_on_screen = GetWorldToScreen(mouse_grab_point, camera);
@@ -193,7 +216,7 @@ void raylib_simple_example(PlayerState &ps) {
         const auto bottom_left = intersect_with_ground_plane(GetMouseRay(Vector2{0, (float)GetScreenHeight()}, camera), 0.0f);
         const auto bottom_right = intersect_with_ground_plane(GetMouseRay({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera), 0.0f);
 
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && Vector2DistanceSqr(click_start_screen_pos, mouse_position) < 250.0f) {
             auto& units = gs.units.get_all_on_hex(hovered_coords);
             if (units.has_any()) {
                 if (ps.selected_unit.has_value() && ps.selected_unit.value().first == hovered_coords) {
@@ -218,7 +241,15 @@ void raylib_simple_example(PlayerState &ps) {
 
         if (ps.selected_unit.has_value() && IsMouseButtonReleased(MOUSE_RIGHT_BUTTON)) {
             // ps.selected_unit.value().first = hovered_coords;
-            //TODO: Unit moving
+            auto [location, type] = ps.selected_unit.value();
+            switch (type) {
+                case UnitType::Millitary: gs.MoveUnit<UnitType::Millitary>(location, hovered_coords); break;
+                case UnitType::Civilian: gs.MoveUnit<UnitType::Civilian>(location, hovered_coords); break;
+                case UnitType::Special: gs.MoveUnit<UnitType::Special>(location, hovered_coords); break;
+                default:;
+            }
+            ps.selected_unit.value().first = hovered_coords;
+            gs.UpdateVission(pretend_fraction);
         }
 
         if (IsKeyPressed(KEY_U)) {
