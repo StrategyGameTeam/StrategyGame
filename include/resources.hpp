@@ -3,15 +3,7 @@
 #include <raylib.h>
 #include "module.hpp"
 #include "utils.hpp"
-
-namespace issues {
-    struct MissingField { std::string what_module; std::string what_def; std::string fieldname; };
-    struct InvalidFile { std::string what_module; std::string filepath; };
-    struct InvalidKey { std::string what_module; std::string what_def; };
-    struct InvalidType { std::string what_module; std::string what_def; std::string what_field; sol::type what_type_wanted; sol::type what_type_provided; };
-}
-
-using ResourceIssues = std::variant<issues::MissingField, issues::InvalidFile, issues::InvalidKey, issues::InvalidType>;
+#include "issues.hpp"
 
 struct ProductKind {
     std::string name;
@@ -27,6 +19,8 @@ struct HexKind {
     std::string name;
     std::string description;
     std::vector<std::pair<int, int>> produces;
+    int vision_cost = 1;
+    int movement_cost = 1;
     Model model;
 
     ~HexKind() {
@@ -69,20 +63,21 @@ struct ResourceStore {
     ResourceStore& operator= (const ResourceStore&) = delete;
     ResourceStore& operator= (ResourceStore&&) = delete;
 
-    // Type tables
+    // Type tables (optionals for possible non-initialized content)
     std::vector<ProductKind> m_product_table;
     std::vector<HexKind> m_hex_table;
     std::vector<std::unique_ptr<WorldGen>> m_worldgens;
 
     // Resource file utils
     std::optional<std::filesystem::path> ResolveModuleFile(const Module& m, std::filesystem::path relpath) const;
+    std::filesystem::path ResolveModuleFileThrows(const Module& m, std::filesystem::path relpath) const;
 
     // Process loaded modules, load their stuff into memory, apply alterations, and optimize
-    std::vector<ResourceIssues> LoadModuleResources(ModuleLoader& modl);
+    std::vector<issues::AnyIssue> LoadModuleResources(ModuleLoader& modl);
     
-    void LoadProducts(const Module& mod, std::vector<ResourceIssues>& issues);
-    void LoadHexes(const Module& mod, std::vector<ResourceIssues>& issues);
-    void LoadWorldGen(const Module& mod, std::vector<ResourceIssues>& issues);
+    void LoadProducts(ModuleLoader& modl, const Module& mod, std::vector<issues::AnyIssue>& issues);
+    void LoadHexes(ModuleLoader& modl, const Module& mod, std::vector<issues::AnyIssue>& issues);
+    void LoadWorldGen(ModuleLoader& modl, const Module& mod, std::vector<issues::AnyIssue>& issues);
 
     int FindProductIndex (std::string name);
     int FindHexIndex (std::string name);
