@@ -14,7 +14,7 @@ struct PacketReader {
     }
 
     std::string readString(){
-        auto str = std::string(buf.begin() + idx, std::find(buf.begin()+idx, buf.end(),'\0'));
+        auto str = std::string(buf.begin() + idx, std::find(buf.begin()+idx, buf.end(), 0));
         idx += str.length() + 1;
         return str;
     }
@@ -43,7 +43,7 @@ struct PacketReader {
 
 static constexpr int BUFFER_SIZE = 2*1024*1024;
 struct PacketWriter {
-    std::unique_ptr<char*> buf = std::make_unique<char*>(new char[BUFFER_SIZE]);
+    std::unique_ptr<std::array<char, BUFFER_SIZE>> buf = std::make_unique<std::array<char, BUFFER_SIZE>>();
     unsigned long len = 4;
 
     void writeString(const std::string &str){
@@ -55,7 +55,7 @@ struct PacketWriter {
     void writeChar(char c){
         (*buf)[len++] = c;
         if(len > BUFFER_SIZE){
-            throw "packet writer buffer overflow";
+            throw std::overflow_error("packet writer buffer overflow");
         }
     }
     void writeInt(int n){
@@ -81,7 +81,7 @@ concept Packet = requires(T ext, PacketWriter &wr) {
     { ext.packetId, ext.serialize(wr) };
 };
 
-void writeLargeData(const std::shared_ptr<uvw::TCPHandle> &handle, char* buf, unsigned long len);
+void writeLargeData(const std::shared_ptr<uvw::TCPHandle> handle, char* buf, unsigned long len);
 
 template<Packet T>
 void writePacket(const std::shared_ptr<uvw::TCPHandle> &handle, const std::string &destination, const T &packet) {
@@ -93,7 +93,7 @@ void writePacket(const std::shared_ptr<uvw::TCPHandle> &handle, const std::strin
     (*wr.buf)[1] = (char)((wr.len >> 16) & 0xff);
     (*wr.buf)[2] = (char)((wr.len >> 8) & 0xff);
     (*wr.buf)[3] = (char)(wr.len & 0xff);
-    writeLargeData(handle, *wr.buf, wr.len);
+    writeLargeData(handle, wr.buf->data(), wr.len);
 
 }
 template<Packet T>
@@ -120,11 +120,11 @@ struct Connection{
     void onConnected(const uvw::ConnectEvent &evt);
 
     template<Packet T>
-    void write(const T &packet) {
+    void writeToHost(const T &packet) {
         writePacket(this->m_tcp, packet);
     }
     template<Packet T>
-    void write(std::string player, const T &packet) {
+    void writeToPlayer(std::string player, const T &packet) {
         writePacket(this->m_tcp, player, packet);
     }
 
@@ -143,8 +143,7 @@ struct Connection{
         auto reader = PacketReader(data);
         auto size = reader.readUInt();
         if(size < 4){
-            std::cout << "Illegal state, data size: " << data.size() << std::endl;
-            return; //illegal state
+            throw std::underflow_error("Illegal state, data size: " + std::to_string(data.size()));
         }
         if(data.size() < size){
             //std::cout << "missing data size: " << size - data.size() << std::endl;

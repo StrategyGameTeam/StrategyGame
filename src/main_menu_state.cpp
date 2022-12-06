@@ -15,7 +15,6 @@ Main_Menu_State::Main_Menu_State(State_Stack& arg_state_stack_handle) :
 		{
             auto connection_addr = this->connection_addr_writebox.getText();
             auto colon = connection_addr.find(':');
-            std::cout << "colon: " << colon << std::endl;
             if(colon == std::string::npos){
                 //todo: error
                 return;

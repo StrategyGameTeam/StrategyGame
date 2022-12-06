@@ -3,7 +3,7 @@
 #include "state_stack.hpp"
 #include "gui_button.hpp"
 #include "gui_textbox.hpp"
-#include "../common/connection.hpp"
+#include "connection.hpp"
 #include "gui_writebox.hpp"
 
 class Main_Menu_State final : public State_Base

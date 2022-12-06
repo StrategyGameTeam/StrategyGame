@@ -2,7 +2,7 @@
 #include <iostream>
 #include <thread>
 
-void writeLargeData(const std::shared_ptr<uvw::TCPHandle> &handle, char* buf, unsigned long len){
+void writeLargeData(const std::shared_ptr<uvw::TCPHandle> handle, char* buf, unsigned long len){
     unsigned int idx = 0;
     while(idx < len){
         unsigned int to_write = std::min(len - idx, 64*1024ul);

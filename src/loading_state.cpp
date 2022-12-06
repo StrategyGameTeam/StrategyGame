@@ -51,7 +51,7 @@ Loading_State::Loading_State(State_Stack& arg_state_stack_handle,
         std::cout << "UPDATE WORLD" << std::endl;
         this->gs->world = std::move(packet.world);
     });
-    connection->write(LoginPacket{game_id, nickname});
+    connection->writeToHost(LoginPacket{game_id, nickname});
 
     adjust_to_window();
 }

@@ -5,8 +5,8 @@
 #include "connection.hpp"
 #include "packets.hpp"
 
-constexpr const char *addr = "127.0.0.1";
-constexpr const int port = 4242;
+constexpr char *addr = "127.0.0.1";
+constexpr int port = 4242;
 
 void acceptClient(uvw::TCPHandle &srv);
 
@@ -17,10 +17,10 @@ void handleLogin(uvw::TCPHandle &handle, PacketReader &reader);
 
 std::string genGameId() {
     int len = 4;
-    static auto &chrs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const static auto &chrs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-    thread_local static std::mt19937 rg{std::random_device{}()};
-    thread_local static std::uniform_int_distribution<std::string::size_type> pick(0, sizeof(chrs) - 2);
+    static std::mt19937 rg{std::random_device{}()};
+    static std::uniform_int_distribution<std::string::size_type> pick(0, sizeof(chrs) - 2);
 
     std::string s;
 
@@ -76,7 +76,7 @@ void acceptClient(uvw::TCPHandle &srv) {
         auto reader = PacketReader(recv_buffer);
         auto size = reader.readUInt();
         if(recv_buffer.size() < size){
-            std::cout << "missing data size: " << size - recv_buffer.size() << std::endl;
+            //std::cout << "missing data size: " << size - recv_buffer.size() << std::endl;
             return;
         }
         auto packetId = reader.readString();

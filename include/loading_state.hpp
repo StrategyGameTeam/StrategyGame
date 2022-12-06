@@ -1,7 +1,7 @@
 #pragma once
 
 #include "state_stack.hpp"
-#include "../common/connection.hpp"
+#include "connection.hpp"
 #include "gui_textbox.hpp"
 #include "game_state.hpp"
 
