@@ -1,4 +1,4 @@
-#include "gui_writebox.hpp"
+#include "gui/gui_writebox.hpp"
 
 Writebox::Writebox(float arg_x, float arg_y, int arg_character_limit) :
 	box{arg_x, arg_y, width, height},

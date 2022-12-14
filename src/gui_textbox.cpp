@@ -1,4 +1,4 @@
-#include "gui_textbox.hpp"
+#include "gui/gui_textbox.hpp"
 
 Textbox::Textbox(const std::string& arg_text, float arg_x, float arg_y, float arg_width, float arg_height, float arg_font_size) :
 	text(arg_text),

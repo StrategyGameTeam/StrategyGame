@@ -1,4 +1,4 @@
-#include "gui_chatlog.hpp"
+#include "gui/gui_chatlog.hpp"
 
 Chatlog::Chatlog(float arg_x, float arg_y, int arg_character_limit) :
 	Writebox(arg_x + width * 0.5f, arg_y + height * 0.5f, arg_character_limit),

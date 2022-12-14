@@ -75,7 +75,7 @@ struct ModuleLoader {
         // Load and run Lua
         for(const auto& modpath : module_paths) {
             try {
-                logger::info("Starting to load ", modpath.string());
+                logging::info("Starting to load ", modpath.string());
                 const auto entry_point = modpath / "mod.lua";
                 if (!std::filesystem::is_regular_file(entry_point)) {
                     issues.push_back(issues::InvalidPath{.path = entry_point.string() });

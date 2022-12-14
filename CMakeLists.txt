@@ -63,10 +63,7 @@ add_executable(
         src/input.cpp
         src/module.cpp
         src/resources.cpp
-        src/state_stack.cpp
-        src/state_base.cpp
-        src/test_state.cpp
-        src/main_menu_state.cpp
+        src/behaviour_stack.cpp
         src/gui_chatlog.cpp
         src/gui_textbox.cpp
         src/gui_writebox.cpp
