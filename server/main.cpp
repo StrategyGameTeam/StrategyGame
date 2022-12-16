@@ -1,9 +1,9 @@
 #include "uvw.hpp"
 #include <memory>
-#include <iostream>
 #include <random>
 #include "connection.hpp"
 #include "packets.hpp"
+#include "utils.hpp"
 
 constexpr char *addr = "127.0.0.1";
 constexpr int port = 4242;
@@ -38,8 +38,6 @@ struct HandleData {
     bool is_host;
 };
 
-std::vector<std::string> games;
-
 int main() {
     auto loop = uvw::Loop::getDefault();
     std::shared_ptr<uvw::TCPHandle> tcp = loop->resource<uvw::TCPHandle>();
@@ -50,7 +48,7 @@ int main() {
 
     tcp->bind(addr, port);
     tcp->listen();
-    std::cout << "Server running at: " << addr << ":" << port << std::endl;
+    logger::info("Server running at: ", addr, ":", port);
     loop->run();
 }
 std::vector<char> recv_buffer{};
@@ -61,14 +59,14 @@ void acceptClient(uvw::TCPHandle &srv) {
 
     //Listeners
     client->on<uvw::CloseEvent>([](const uvw::CloseEvent &, uvw::TCPHandle &client) {
-        std::cout << "[" << client.peer().ip << "]" << " disconnected " << std::endl;
+        logger::info("[", client.peer().ip, "] disconnected ");
         client.close();
     });
     client->on<uvw::DataEvent>([&](const uvw::DataEvent &evt, uvw::TCPHandle &client) {
-        std::cout << "[" << client.peer().ip << "]" << " Received bytes: " << evt.length << std::endl;
+        logger::debug("[", client.peer().ip, "] Received bytes: ", evt.length);
 
         std::copy_n(evt.data.get(), evt.length, std::back_inserter(recv_buffer));
-        std::cout << "buffer size: " << recv_buffer.size() << std::endl;
+        logger::debug("buffer size: ", recv_buffer.size());
         if(recv_buffer.size() < 4){
             return;
         }
@@ -76,7 +74,7 @@ void acceptClient(uvw::TCPHandle &srv) {
         auto reader = PacketReader(recv_buffer);
         auto size = reader.readUInt();
         if(recv_buffer.size() < size){
-            //std::cout << "missing data size: " << size - recv_buffer.size() << std::endl;
+            logger::debug("missing data size: ", size - recv_buffer.size());
             return;
         }
         auto packetId = reader.readString();
@@ -92,7 +90,7 @@ void acceptClient(uvw::TCPHandle &srv) {
             broadcast(client.loop(), client_data->game_id, ChatPacket{msg});
         } else {
 
-            std::cout << "Forwarding packet for game: " << client_data->game_id << " and player: " << destination << std::endl;
+            logger::info("Forwarding packet for game: ", client_data->game_id, " and player: ", destination);
             client.loop().walk(uvw::Overloaded{
                     [&](uvw::TCPHandle &h) {
                         auto player_data = h.data<HandleData>();
@@ -109,33 +107,45 @@ void acceptClient(uvw::TCPHandle &srv) {
 
         }
         recv_buffer.erase(recv_buffer.begin(), recv_buffer.begin() + size);
-        std::cout << "cleaned buffer size: " << recv_buffer.size() << std::endl;
+        logger::debug("cleaned buffer size: ", recv_buffer.size());
     });
 
     //Accept client
     srv.accept(*client);
-    std::cout << "Client connected: " << client->peer().ip << std::endl;
+    logger::info("Client connected: ", client->peer().ip);
     client->read();
 }
 
 void handleLogin(uvw::TCPHandle &handle, PacketReader &reader) {
     const auto packet = LoginPacket::deserialize(reader);
-    std::cout << "Logged in: " << packet.nickname << std::endl;
+    logger::info("Logged in: ", packet.nickname);
     auto game_id = packet.game_id;
     bool is_host = false;
-    if (std::find(games.begin(), games.end(), game_id) == games.end()) {
-        std::cout << "Game not found, creating new!" << std::endl;
+    std::shared_ptr<uvw::TCPHandle> host_handle;
+    handle.loop().walk(uvw::Overloaded{
+            [&](uvw::TCPHandle &h) {
+                auto data = h.data<HandleData>();
+                if(data == nullptr){
+                    return;
+                }
+                if (data->game_id == game_id && data->is_host) {
+                    host_handle = h.shared_from_this();
+                }
+            },
+            [](auto &&) {}
+    });
+    if (!host_handle) {
+        logger::info("Game not found, creating new!");
         game_id = genGameId();
-        games.push_back(game_id);
         is_host = true;
-        std::cout << "Created game with ID: " << game_id << std::endl;
+        logger::info("Created game with ID: ", game_id);
     }
-    std::cout << "Client for game: " << game_id << std::endl;
+    logger::info("Client for game: ", game_id);
     handle.data(std::make_shared<HandleData>(HandleData{packet.nickname, game_id, is_host}));
 
     std::vector<std::shared_ptr<uvw::TCPHandle>> players;
     std::vector<std::string> playerNames;
-    std::cout << "Clients in game: " << std::endl;
+    logger::info("Clients in game: ");
     handle.loop().walk(uvw::Overloaded{
             [&](uvw::TCPHandle &h) {
                 auto data = h.data<HandleData>();
@@ -145,7 +155,7 @@ void handleLogin(uvw::TCPHandle &handle, PacketReader &reader) {
                 if (data->game_id == game_id) {
                     players.emplace_back(h.shared_from_this());
                     playerNames.push_back(data->nickname);
-                    std::cout << " - " << data->nickname << std::endl;
+                    logger::info(" - ", data->nickname);
                 }
             },
             [](auto &&) {}
@@ -156,7 +166,7 @@ void handleLogin(uvw::TCPHandle &handle, PacketReader &reader) {
         writePacket(item, ProxyDataPacket{data->is_host, playerNames, game_id});
         writePacket(item, ChatPacket{"Player " + packet.nickname + " joined!"});
         if (data->is_host && data->nickname != packet.nickname) {
-            std::cout << "Initializing player: " << packet.nickname << " host: " << data->nickname << std::endl;
+            logger::info("Initializing player: ", packet.nickname, " host: ", data->nickname);
             //send update to host
             writePacket(item, InitializePlayerRequestPacket{packet.nickname});
         }
