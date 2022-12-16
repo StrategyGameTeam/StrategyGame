@@ -1,8 +1,8 @@
 #pragma once
 #include "uvw.hpp"
-#include <iostream>
 #include <thread>
 #include <queue>
+#include "utils.hpp"
 
 const std::string HOST;
 
@@ -146,16 +146,15 @@ struct Connection{
             throw std::underflow_error("Illegal state, data size: " + std::to_string(data.size()));
         }
         if(data.size() < size){
-            //std::cout << "missing data size: " << size - data.size() << std::endl;
+            logger::debug("missing data size: ", size - data.size());
             return;
         }
 
         auto packetId = reader.readString();
         auto destination = reader.readString();
-        std::cout << "Received packet with id: " << packetId << " and destination: " << destination
-                  << std::endl;
+        logger::debug("Received packet with id: ", packetId, " and destination: ", destination);
         if (!m_handlers.contains(packetId)) {
-            std::cout << "Handler not found for packet: " << packetId << std::endl;
+            logger::error("Handler not found for packet: ", packetId);
             data.erase(data.begin(), data.begin() + size);
             return;
         }
