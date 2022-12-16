@@ -36,6 +36,11 @@ struct HandleData {
     std::string nickname;
     std::string game_id;
     bool is_host;
+    std::vector<char> recv_buffer{};
+
+    bool isInitialized(){
+        return !nickname.empty();
+    }
 };
 
 int main() {
@@ -51,36 +56,36 @@ int main() {
     logger::info("Server running at: ", addr, ":", port);
     loop->run();
 }
-std::vector<char> recv_buffer{};
 
 void acceptClient(uvw::TCPHandle &srv) {
     //Allocate new TCPHandle for a client
     auto client = srv.loop().resource<uvw::TCPHandle>();
-
+    if(client->data<HandleData>() == nullptr){
+        client->data(std::make_shared<HandleData>());
+    }
     //Listeners
     client->on<uvw::CloseEvent>([](const uvw::CloseEvent &, uvw::TCPHandle &client) {
         logger::info("[", client.peer().ip, "] disconnected ");
         client.close();
     });
     client->on<uvw::DataEvent>([&](const uvw::DataEvent &evt, uvw::TCPHandle &client) {
+        auto client_data = client.data<HandleData>();
         logger::debug("[", client.peer().ip, "] Received bytes: ", evt.length);
 
-        std::copy_n(evt.data.get(), evt.length, std::back_inserter(recv_buffer));
-        logger::debug("buffer size: ", recv_buffer.size());
-        if(recv_buffer.size() < 4){
+        std::copy_n(evt.data.get(), evt.length, std::back_inserter(client_data->recv_buffer));
+        logger::debug("buffer size: ", client_data->recv_buffer.size());
+        if(client_data->recv_buffer.size() < 4){
             return;
         }
 
-        auto reader = PacketReader(recv_buffer);
+        auto reader = PacketReader(client_data->recv_buffer);
         auto size = reader.readUInt();
-        if(recv_buffer.size() < size){
-            logger::debug("missing data size: ", size - recv_buffer.size());
+        if(client_data->recv_buffer.size() < size){
+            logger::debug("missing data size: ", size - client_data->recv_buffer.size());
             return;
         }
         auto packetId = reader.readString();
         auto destination = reader.readString();
-
-        auto client_data = client.data<HandleData>();
 
         if (packetId == LoginPacket::packetId) {
             handleLogin(client, reader);
@@ -99,15 +104,15 @@ void acceptClient(uvw::TCPHandle &srv) {
                         }
                         if (client_data->game_id == player_data->game_id &&
                             ((destination.empty() && player_data->is_host) || player_data->nickname == destination)) {
-                            writeLargeData(h.shared_from_this(), recv_buffer.data(), recv_buffer.size());
+                            writeLargeData(h.shared_from_this(), client_data->recv_buffer.data(), client_data->recv_buffer.size());
                         }
                     },
                     [](auto &&) {}
             });
 
         }
-        recv_buffer.erase(recv_buffer.begin(), recv_buffer.begin() + size);
-        logger::debug("cleaned buffer size: ", recv_buffer.size());
+        client_data->recv_buffer.erase(client_data->recv_buffer.begin(), client_data->recv_buffer.begin() + size);
+        logger::debug("cleaned buffer size: ", client_data->recv_buffer.size());
     });
 
     //Accept client
@@ -118,6 +123,10 @@ void acceptClient(uvw::TCPHandle &srv) {
 
 void handleLogin(uvw::TCPHandle &handle, PacketReader &reader) {
     const auto packet = LoginPacket::deserialize(reader);
+    auto handle_data = handle.data<HandleData>();
+    if(handle_data == nullptr || handle_data->isInitialized()){
+        return;
+    }
     logger::info("Logged in: ", packet.nickname);
     auto game_id = packet.game_id;
     bool is_host = false;
@@ -141,7 +150,9 @@ void handleLogin(uvw::TCPHandle &handle, PacketReader &reader) {
         logger::info("Created game with ID: ", game_id);
     }
     logger::info("Client for game: ", game_id);
-    handle.data(std::make_shared<HandleData>(HandleData{packet.nickname, game_id, is_host}));
+    handle_data->nickname = packet.nickname;
+    handle_data->game_id = game_id;
+    handle_data->is_host = is_host;
 
     std::vector<std::shared_ptr<uvw::TCPHandle>> players;
     std::vector<std::string> playerNames;
