@@ -11,6 +11,7 @@ class Main_Menu_State final : public State_Base
 private:
 
 	Textbox game_name;
+	Textbox error_text;
 	Button<State_Stack&> play_button;
 	Button<State_Stack&> exit_button;
 	Writebox connection_addr_writebox;
