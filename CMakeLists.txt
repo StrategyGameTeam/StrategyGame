@@ -50,11 +50,19 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/raysan5/raylib.git
     GIT_TAG 4.2.0
 )
+FetchContent_Declare(
+    uvw
+    GIT_REPOSITORY https://github.com/skypjack/uvw.git
+    GIT_TAG v2.12.1_libuv_v1.44
+)
 
 set(BUILD_EXAMPLES OFF)
+set(BUILD_UVW_LIBS ON)
 FetchContent_MakeAvailable(raylib)
 
 FetchContent_MakeAvailable(sol2)
+
+FetchContent_MakeAvailable(uvw)
 
 add_executable(
     stratgametest
@@ -67,9 +75,13 @@ add_executable(
         src/state_base.cpp
         src/test_state.cpp
         src/main_menu_state.cpp
+        src/loading_state.cpp
         src/gui_chatlog.cpp
         src/gui_textbox.cpp
         src/gui_writebox.cpp
+        src/connection.cpp
+        src/packet_ids.cpp
+        src/packet_ids_game.cpp
 )
 
 target_include_directories(
@@ -77,6 +89,7 @@ target_include_directories(
         PRIVATE
             $ENV{LUA_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
 )
 
 target_link_libraries(
@@ -84,7 +97,27 @@ target_link_libraries(
         PRIVATE
         raylib
         sol2
+        uvw
         ${LUA_LIB_FILES}
+)
+
+add_executable(
+        server
+        server/main.cpp
+        src/packet_ids.cpp
+        src/connection.cpp
+)
+
+target_include_directories(
+        server
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+)
+
+target_link_libraries(
+        server
+        PRIVATE
+        uvw
 )
 
 # enable compiler flags

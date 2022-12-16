@@ -19,6 +19,7 @@ private:
 	std::deque<std::string> texts;
 	Rectangle chat_box;
 	Rectangle chat_box_hitbox;
+    std::function<void(std::string&)> text_acceptor;
 
 	Chatlog(const Chatlog&) = delete;
 	Chatlog(Chatlog&&) = delete;
@@ -31,5 +32,7 @@ public:
 	void handle_events(int key_pressed);
 	void set_position(float x, float y);
 	void draw() const;
+    void add_text(std::string &text);
+    void set_text_acceptor(std::function<void(std::string&)> text_acceptor);
 
 };
