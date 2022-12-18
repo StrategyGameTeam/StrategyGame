@@ -12,4 +12,9 @@ struct PlayerState {
     std::optional<std::pair<HexCoords, UnitType>> selected_unit;
 
     PlayerState(std::shared_ptr<GameState> gs) : gs(gs) {}
+
+    PlayerState(const PlayerState&) = delete;
+    PlayerState(PlayerState&&) = delete;
+    PlayerState& operator= (const PlayerState&) = delete;
+    PlayerState& operator= (PlayerState&&) = delete;
 };

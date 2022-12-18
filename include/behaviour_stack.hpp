@@ -26,7 +26,7 @@ private:
 			loop_fn(behaviour, bs);
 		}
 
-		~VoidErasedBehaviourElement() {
+		void run_destroy() {
 			destroy(behaviour);
 		}
 	};
@@ -50,7 +50,7 @@ public:
 
 	template <ViableBehaviour T>
 	void defer_push(T *b) {
-		actions_queue.push_back(PushAction{
+		actions_queue.emplace_back(PushAction{
 			.element = {
 				.behaviour = b,
 				.destroy = [](const void* bp) { static_cast<const T*>(bp)->~T(); },
@@ -61,7 +61,7 @@ public:
 
 	template <ViableBehaviour T>
 	void push(T *b) {
-		states_stack.push_back({
+		states_stack.emplace_back(VoidErasedBehaviourElement{
 			.behaviour = b,
 			.destroy = [](const void* bp) { static_cast<const T*>(bp)->~T(); },
 			.loop_fn = [](void* bp, BehaviourStack& bs) { static_cast<T*>(bp)->loop(bs); }

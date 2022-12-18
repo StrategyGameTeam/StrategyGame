@@ -16,4 +16,10 @@ struct AppState {
     bool debug = true;
     ResourceStore resourceStore;
     ModuleLoader moduleLoader;
+
+    AppState() = default;
+    AppState(const AppState&) = delete;
+    AppState(AppState&&) = delete;
+    AppState& operator= (const AppState&) = delete;
+    AppState& operator= (AppState&&) = delete;
 };

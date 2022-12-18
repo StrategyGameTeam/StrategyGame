@@ -25,18 +25,27 @@ struct MainMenu {
         exit_button("EXIT", 0, 0, 200, 60),
         test_writebox(0, 0),
         test_chatlog(0, 0) 
-    {}
+    {
+        adjust_to_window();
+    }
     
     void loop (BehaviourStack& bs) {
+        if (IsWindowResized()) {
+            adjust_to_window();
+        }
         play_button.handle_events();
         exit_button.handle_events();
 
         if (play_button.is_clicked()) {
             auto game_state = std::make_shared<GameState>(app_state); // ! this should not be here
+            game_state->RunWorldgen(app_state->resourceStore.GetGenerator(app_state->resourceStore.FindGeneratorIndex("default")), {}); // this "errors" an insane number of times
+            // but because LuaJIT goes through non-unwindable functions, they just, get discarded
             auto player_state = std::make_shared<PlayerState>(game_state);
 			bs.defer_push(new behaviours::MainGame(player_state));
         }
+
         if (exit_button.is_clicked()) {
+            std::cout << "Clearing???\n";
 			bs.defer_clear();
         }
 
@@ -49,18 +58,18 @@ struct MainMenu {
 
         test_chatlog.handle_events(key_pressed);
 
-        ClearBackground(DARKGRAY);
+        BeginDrawing();
+            ClearBackground(DARKGRAY);
 
-        game_name.draw();
-        play_button.draw();
-        exit_button.draw();
-        test_writebox.draw();
-        test_chatlog.draw();
+            game_name.draw();
+            play_button.draw();
+            exit_button.draw();
+            test_writebox.draw();
+            test_chatlog.draw();
+        EndDrawing();
     }
 
-    ~MainMenu() {
-
-    }
+    ~MainMenu() {}
 
 private:
     void adjust_to_window() {

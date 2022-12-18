@@ -140,10 +140,10 @@ return {
           
           local width = 128
           local height = 128
-
+          
           Map:setSize(width, height)
           Map:setTileCoords(Map.OFFSET)
-
+          
           local grass = Defs.getHex("Grass")
           local stone = Defs.getHex("Stone")
           local water = Defs.getHex("Water")
@@ -151,7 +151,7 @@ return {
           local sandrocks = Defs.getHex("SandRocks")
           local dirt = Defs.getHex("Dirt")
           local mountain = Defs.getHex("Mountain")
-
+          
           local biomeHeight = height / 7
           local frequency = 1
           local octave = 8
@@ -178,7 +178,7 @@ return {
               total = 0
               maxvalue = 0
               amplitude = 128
-
+              
               if mt[i][j] > 0.15 then
                 Map:setTileAt(i, j, mountain);
               elseif mt[i][j] > -0.05 then
@@ -194,6 +194,7 @@ return {
               end
             end
           end
+          return 0
         end
       }
     }
