@@ -67,6 +67,8 @@ add_executable(
         src/gui_chatlog.cpp
         src/gui_textbox.cpp
         src/gui_writebox.cpp
+        src/behaviours/main_game.cpp
+        src/behaviours/main_menu.cpp
 )
 
 target_include_directories(

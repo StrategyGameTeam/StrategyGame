@@ -6,13 +6,14 @@ BehaviourStack::BehaviourStack() {}
 
 void BehaviourStack::perform_queued_actions()
 {
-	for(auto& action : actions_queue) {
+	while(!actions_stack.empty()) {
 		auto& ss = states_stack; // needed because privacy
 		std::visit(overloaded{
 			[&](BehaviourStack::PopAction&) { pop(); },
 			[&](BehaviourStack::ClearAction&) { clear(); },
-			[&](BehaviourStack::PushAction& pa) { ss.push_back(pa.element); }
-		}, action);
+			[&](BehaviourStack::PushAction& pa) { ss.push_back(pa.element); pa.run_initialize(); }
+		}, actions_stack.back());
+		actions_stack.pop_back();
 	}
 }
 
@@ -28,12 +29,12 @@ void BehaviourStack::update()
 
 void BehaviourStack::defer_pop()
 {
-	actions_queue.push_back(PopAction{});
+	actions_stack.push_back(PopAction{});
 }
 
 void BehaviourStack::defer_clear()
 {
-	actions_queue.push_back(ClearAction{});
+	actions_stack.push_back(ClearAction{});
 }
 
 void BehaviourStack::pop()

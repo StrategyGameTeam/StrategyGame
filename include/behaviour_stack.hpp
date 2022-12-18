@@ -10,6 +10,7 @@ class BehaviourStack;
 
 template <typename T>
 concept ViableBehaviour = requires(T behaviour, BehaviourStack &bs) {
+	{ behaviour.initialize() };
 	{ behaviour.loop(bs) };
 };
 
@@ -35,12 +36,16 @@ private:
 	struct ClearAction {};
 	struct PushAction {
 		VoidErasedBehaviourElement element;
+		void (*initialize_fn)(void*);
+		void run_initialize() {
+			initialize_fn(element.behaviour);
+		}
 	};
 
 	using Action = std::variant<PopAction, ClearAction, PushAction>;
 
 	std::vector<VoidErasedBehaviourElement> states_stack;
-	std::vector<Action> actions_queue;
+	std::vector<Action> actions_stack;
 
 	void perform_queued_actions();
 	void update();
@@ -50,21 +55,38 @@ public:
 
 	template <ViableBehaviour T>
 	void defer_push(T *b) {
-		actions_queue.emplace_back(PushAction{
+		actions_stack.emplace_back(PushAction{
 			.element = {
 				.behaviour = b,
 				.destroy = [](const void* bp) { static_cast<const T*>(bp)->~T(); },
-				.loop_fn = [](void* bp, BehaviourStack& bs) { static_cast<T*>(bp)->loop(bs); } // i believe we cannot remove that layer of indirection, because we need to convert between calling conventions
-			}
+				.loop_fn = [](void* bp, BehaviourStack& bs) { static_cast<T*>(bp)->loop(bs); }, // i believe we cannot remove that layer of indirection, because we need to convert between calling conventions
+			},
+			.initialize_fn = [](void* bp) { static_cast<T*>(bp)->initialize(); }
 		});
 	};
 
 	template <ViableBehaviour T>
+	void defer_push(std::shared_ptr<T> b) {
+		decltype(b) *sptrptr = new decltype(b)(b);
+		actions_stack.emplace_back(PushAction{
+			.element = {
+				.behaviour = sptrptr,
+				.destroy = [](const void* bp) { 
+					delete static_cast<const std::shared_ptr<T>*>(bp); 
+				},
+				.loop_fn = [](void* bp, BehaviourStack& bs) { (*static_cast<std::shared_ptr<T>*>(bp))->loop(bs); },
+			},
+			.initialize_fn = [](void* bp) { (*static_cast<std::shared_ptr<T>*>(bp))->initialize(); }
+		});
+	}
+
+	template <ViableBehaviour T>
 	void push(T *b) {
+		b->initialize();
 		states_stack.emplace_back(VoidErasedBehaviourElement{
 			.behaviour = b,
 			.destroy = [](const void* bp) { static_cast<const T*>(bp)->~T(); },
-			.loop_fn = [](void* bp, BehaviourStack& bs) { static_cast<T*>(bp)->loop(bs); }
+			.loop_fn = [](void* bp, BehaviourStack& bs) { static_cast<T*>(bp)->loop(bs); },
 		});
 	};
 
