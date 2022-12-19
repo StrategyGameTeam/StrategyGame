@@ -1,4 +1,5 @@
 #include "hex.hpp"
+#include <algorithm>
 
 HexCoords operator "" _LU (unsigned long long x) { int v = x; return HexCoords{0, -v, +v}; };
 HexCoords operator "" _RU (unsigned long long x) { int v = x; return HexCoords{+v, -v, 0}; };

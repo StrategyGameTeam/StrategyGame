@@ -9,13 +9,15 @@
 
 #include "raylib.h"
 #define RAYMATH_IMPLEMENTATION
+#include "math.h"
 #include "raymath.h"
 
 #include "behaviour_stack.hpp"
 #include "app_state.hpp"
 #include "behaviours/main_menu.hpp"
 
-int main () {    
+
+int main () {
     try {
         SetConfigFlags(FLAG_WINDOW_RESIZABLE);
         InitWindow(1200, 900, "Strategy Game");

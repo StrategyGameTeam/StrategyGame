@@ -14,6 +14,7 @@ public:
 
 private:
 
+    std::string label;
 	std::string text;
 	Rectangle box;
 	Rectangle box_hitbox;
@@ -24,12 +25,16 @@ private:
 public:
 
 	Writebox(float arg_x, float arg_y, int arg_character_limit = 100);
+	Writebox(float arg_x, float arg_y, std::string label, int arg_character_limit = 100);
 
 	bool is_active() const;
 	void set_active(bool arg);
 	void set_position(float x, float y);
 	void handle_events(int key_pressed);
 	std::string confirm();
+	std::string getText();
 	void draw() const;
+    float getWidth() const;
+    float getHeight() const;
 
 };

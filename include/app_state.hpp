@@ -13,7 +13,7 @@
 
 struct AppState {
     InputMgr inputMgr;
-    bool debug = true;
+    bool debug = false;
     ResourceStore resourceStore;
     ModuleLoader moduleLoader;
 

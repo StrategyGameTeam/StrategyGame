@@ -61,7 +61,7 @@ struct GetUtils {
     template <typename ConvertInto, sol::type stored_type> ConvertInto GetRequired (sol::table& from, std::string_view field) {
         auto v = from[field];
         if (!v.valid()) {
-            throw issues::AnyIssue(issues::MissingField{.what_module = ml.GetModule(from.lua_state()).value().get().name_unsafe(), .fieldname = std::string(field), .what_def = what_def});
+            throw issues::AnyIssue(issues::MissingField{.what_module = ml.GetModule(from.lua_state()).value().get().name_unsafe(), .what_def = what_def, .fieldname = std::string(field)});
         }
         if (v.get_type() != stored_type) {
             DoThrowBadType<stored_type>(ml, v, field, what_def);

@@ -220,8 +220,7 @@ behaviours::MainGame::loop(BehaviourStack& bs)
           tint = BLUE;
         }
         const auto [tx, ty] = coords.to_world_unscaled();
-        if (hx.tileid != -1 && hx.getFractionVisibility(ps.fraction) !=
-                                 HexData::Visibility::NONE) {
+        if (hx.tileid != -1 && (as.debug || hx.getFractionVisibility(ps.fraction) != HexData::Visibility::NONE)) {
           DrawModelEx(as.resourceStore.m_hex_table.at(hx.tileid).model,
                       Vector3{ tx, -0.2, ty },
                       Vector3{ 0, 1, 0 },

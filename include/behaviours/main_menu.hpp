@@ -13,18 +13,22 @@ namespace behaviours {
 struct MainMenu {
     std::shared_ptr<AppState> app_state;
     Textbox game_name;
+    Textbox error_text;
     SimpleButton play_button;
     SimpleButton exit_button;
-    Writebox test_writebox; // do wyjebania pozniej
-    Chatlog test_chatlog; // do wyjebania pozniej
-    
+    Writebox connection_addr_writebox;
+	Writebox game_id_writebox;
+	Writebox nickname_writebox;
+
     MainMenu(std::shared_ptr<AppState> as):
         app_state(as),
         game_name("S T R A T G A M E", 0, 0, 400, 100, 40.f),
+        error_text("", 0, 0, 400, 50, 20.f),
         play_button("PLAY", 0, 0, 200, 60),
         exit_button("EXIT", 0, 0, 200, 60),
-        test_writebox(0, 0),
-        test_chatlog(0, 0) 
+        connection_addr_writebox(0, 0, "Connection address (eg 127.0.0.1:4242):"),
+        game_id_writebox(0, 0, "Game ID (eg 472948):"),
+        nickname_writebox(0, 0, "Nickname:")
     {}
     
     void initialize() {

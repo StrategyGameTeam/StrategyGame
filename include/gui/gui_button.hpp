@@ -65,4 +65,11 @@ public:
 			Vector2{text_size.x * 0.5f, text_size.y * 0.5f}, 0.f, 20.f, 0.f, (selected ? ORANGE : BLACK));
 	}
 
+    float getWidth() const {
+        return box.width;
+    }
+
+    float getHeight() const {
+        return box.height;
+    }
 };
