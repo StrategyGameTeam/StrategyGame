@@ -1,22 +1,25 @@
 #pragma once
 #include <memory>
 #include "behaviour_stack.hpp"
+#include <functional>
+#include <optional>
 
 namespace behaviours {
-template <typename T>
-struct LoadingScreen : public std::enable_shared_from_this<LoadingScreen<T>> {
+template <typename TNext>
+struct LoadingScreen : public std::enable_shared_from_this<LoadingScreen<TNext>> {
     bool done = false;
-    T* next = nullptr;
+    TNext* next = nullptr;
+    std::optional<std::function<void(BehaviourStack&, LoadingScreen&)>> during;
     float font_size = 32.0f;
     const char *text = "Loading...";
     float time = 0.0f;
 
-    void signal_done(T* _next) {
+    void signal_done(TNext* _next) {
         next = _next;
         done = true;
     }
 
-    LoadingScreen() {};
+    LoadingScreen(decltype(during) loop_element = {}) : during(loop_element) {};
 
     void initialize() {}; 
     void loop (BehaviourStack& bs) {
@@ -24,6 +27,10 @@ struct LoadingScreen : public std::enable_shared_from_this<LoadingScreen<T>> {
             // remove self, insert next, FIFO semantics
             bs.defer_push(next);
             bs.defer_pop();
+        }
+        
+        if (during.has_value()) {
+            during.value()(bs, *this);
         }
         
         time += GetFrameTime();

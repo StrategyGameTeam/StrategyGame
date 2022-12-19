@@ -1,4 +1,5 @@
 #pragma once
+
 #include <array>
 #include <vector>
 #include <concepts>
@@ -6,6 +7,8 @@
 #include <optional>
 #include <raymath.h>
 #include <random>
+#include <algorithm>
+#include "connection.hpp"
 
 /*
 Some notes about what the code means.
@@ -23,20 +26,30 @@ struct EdgeCoords;
 struct HexData;
 
 // Operators to get offsets from a cell. They are Left and Right combined with Up, Down, or just
-HexCoords operator "" _LU (unsigned long long x);
-HexCoords operator "" _RU (unsigned long long x);
-HexCoords operator "" _R  (unsigned long long x);
-HexCoords operator "" _RD (unsigned long long x);
-HexCoords operator "" _LD (unsigned long long x);
-HexCoords operator "" _L  (unsigned long long x);
+HexCoords operator "" _LU(unsigned long long x);
+
+HexCoords operator "" _RU(unsigned long long x);
+
+HexCoords operator "" _R(unsigned long long x);
+
+HexCoords operator "" _RD(unsigned long long x);
+
+HexCoords operator "" _LD(unsigned long long x);
+
+HexCoords operator "" _L(unsigned long long x);
 
 // Function to get the same offsets as in the operators
-HexCoords hexLU (int x);
-HexCoords hexRU (int x);
-HexCoords hexR  (int x);
-HexCoords hexRD (int x);
-HexCoords hexLD (int x);
-HexCoords hexL  (int x);
+HexCoords hexLU(int x);
+
+HexCoords hexRU(int x);
+
+HexCoords hexR(int x);
+
+HexCoords hexRD(int x);
+
+HexCoords hexLD(int x);
+
+HexCoords hexL(int x);
 
 
 // Edges of a hex 
@@ -60,17 +73,28 @@ struct HexCoords {
     int r;
     int s;
 
-    bool operator== (const HexCoords& other) const;
+    bool operator==(const HexCoords &other) const;
+
     static HexCoords from_axial(int q, int r);
-    HexCoords operator+ (const HexCoords& other) const;
-    HexCoords operator- (const HexCoords& other) const;
-    EdgeCoords operator+ (const Edge& edge) const;
+
+    HexCoords operator+(const HexCoords &other) const;
+
+    HexCoords operator-(const HexCoords &other) const;
+
+    EdgeCoords operator+(const Edge &edge) const;
+
     std::array<HexCoords, 6> neighbours() const;
-    int distance (const HexCoords& to) const;
-    std::pair<float, float> to_world_unscaled () const;
+
+    int distance(const HexCoords &to) const;
+
+    std::pair<float, float> to_world_unscaled() const;
+
     static HexCoords rounded_to_hex(float q, float r, float s);
+
     static HexCoords from_world_unscaled(float x, float y);
+
     static std::vector<HexCoords> make_line(const HexCoords from, const HexCoords to);
+
     static HexCoords from_offset(int col, int row);
     std::vector<HexCoords> ring_around(int range) const;
     std::vector<HexCoords> spiral_around(int range) const;
@@ -107,20 +131,58 @@ struct HexData {
         SUPERIOR = 3
     };
 
-    Visibility getFractionVisibility (int fraction) {
-        return (Visibility)((visibility_flags & (0b11 << (fraction * 2))) >> (fraction * 2));
+    Visibility getFractionVisibility(int fraction) {
+        return (Visibility) ((visibility_flags & (0b11 << (fraction * 2))) >> (fraction * 2));
     }
 
-    void setFractionVisibility (int fraction, Visibility vis) {
-        visibility_flags |= (int)vis << (fraction * 2);
+    void setFractionVisibility(int fraction, Visibility vis) {
+        visibility_flags |= (int) vis << (fraction * 2);
     }
 
-    void overrideVisibility (decltype(visibility_flags) val) {
+    void overrideVisibility(decltype(visibility_flags) val) {
         visibility_flags = val;
     }
 
-    void resetVisibility () {
+    void resetVisibility() {
         visibility_flags = 0;
+    }
+
+    void serialize(PacketWriter &wr) const {
+        wr.writeInt(tileid);
+        wr.writeUInt(visibility_flags);
+        wr.writeInt(owner_faction);
+        wr.writeInt(structure_atop);
+        for (const auto &item: structure_edges)
+            wr.writeInt(item);
+        wr.writeInt(upgrade_atop);
+        for (const auto &item: upgrade_edges)
+            wr.writeInt(item);
+
+    }
+
+    static HexData deserialize(PacketReader &reader) {
+        int tileid = reader.readInt();
+        uint_least32_t visibility_flags = reader.readUInt();
+        int owner_faction = reader.readInt();
+        int structure_atop = reader.readInt();
+        std::array<int, 6> structure_edges = {-1};
+        for (int &structure_edge: structure_edges) {
+            structure_edge = reader.readInt();
+        }
+        int upgrade_atop = reader.readInt();
+        std::array<int, 6> upgrade_edges = {-1};
+        for (int &upgrade_edge: upgrade_edges) {
+            upgrade_edge = reader.readInt();
+        }
+        return HexData{
+                .tileid = tileid,
+                .visibility_flags = visibility_flags,
+                .owner_faction = owner_faction,
+                .structure_atop = structure_atop,
+                .structure_edges = structure_edges,
+                .upgrade_atop = upgrade_atop,
+                .upgrade_edges = upgrade_edges
+        };
     }
 };
 
@@ -129,7 +191,7 @@ struct EdgeCoords {
     Edge edge;
 };
 
-template <typename HexT>
+template<typename HexT>
 struct CylinderHexWorld {
     int width;
     int height;
@@ -143,24 +205,24 @@ struct CylinderHexWorld {
         data.resize((width)*(height), default_hex);
     }
 
-    HexCoords normalized_coords (const HexCoords abnormal) const {
+    HexCoords normalized_coords(const HexCoords abnormal) const {
         const auto q = positive_modulo(abnormal.q, width);
         const auto r = std::max(std::min<int>(abnormal.r, height), 0);
-        const auto s = -q-r;
+        const auto s = -q - r;
         return HexCoords{q, r, s};
     }
 
-    void normalize_height(HexCoords& hc) const {
+    void normalize_height(HexCoords &hc) const {
         hc.r = std::max(std::min<int>(hc.r, height), 0);
     }
 
-    int compute_index (const HexCoords hc) const {
+    int compute_index(const HexCoords hc) const {
         int direct_row = hc.r;
         int direct_column = hc.q;
-        return direct_row*width + direct_column;
+        return direct_row * width + direct_column;
     }
 
-    int compute_normalized_index (const HexCoords ahc) const {
+    int compute_normalized_index(const HexCoords ahc) const {
         const auto hc = normalized_coords(ahc);
         return compute_index(hc);
     }
@@ -178,7 +240,46 @@ struct CylinderHexWorld {
         return data.at(compute_index(wrapped));
     }
 
-    HexT& at_ref_normalized(const HexCoords hc) {
+    HexT &at_ref_normalized(const HexCoords hc) {
         return data.at(compute_index(normalized_coords(hc)));
+    }
+
+    std::vector<HexCoords> all_within_unscaled_quad(
+            Vector2 top_left, Vector2 top_right, Vector2 bottom_left, Vector2 bottom_right
+    ) {
+        std::vector<HexCoords> line = ([&] {
+            std::vector<HexCoords> result;
+            // start from the top right
+            const auto bl = HexCoords::from_world_unscaled(bottom_left.x, bottom_left.y) + 1_LD;
+            const auto br = HexCoords::from_world_unscaled(bottom_right.x, bottom_right.y) + 1_RD;
+            const auto steps = bl.distance(br);
+            result.reserve(steps + 1);
+            result.push_back(bl);
+            for (int i = 0; i < steps; i++) {
+                result.push_back(result.back() + 1_R);
+            }
+            return result;
+        })();
+
+        std::vector<HexCoords> result;
+        result.insert(result.end(), line.begin(), line.end());
+
+        const auto limit_r = HexCoords::from_world_unscaled(top_left.x, top_left.y).r - 1;
+
+        while (line.front().r >= limit_r) {
+            std::vector<HexCoords> local_line;
+            local_line.reserve(line.size() + 2);
+            for (size_t i = 0; i < line.size(); i += 2) {
+                local_line.push_back(line.at(i) + 1_LU);
+                local_line.push_back(line.at(i) + 1_RU);
+            }
+            if (line.size() % 2 == 0) {
+                local_line.push_back(local_line.back() + 1_R);
+            }
+            result.insert(result.end(), local_line.begin(), local_line.end());
+            line = local_line;
+        }
+
+        return result;
     }
 };

@@ -4,14 +4,25 @@
 #include "hex.hpp"
 #include "resources.hpp"
 #include "units.hpp"
+#include "connection.hpp"
+#include "packets.hpp"
+#include "game_packets.hpp"
 #include <memory>
 
 struct GameState {
     std::shared_ptr<AppState> app_state;
+    std::shared_ptr<Connection> connection;
     CylinderHexWorld<HexData> world;
     UnitStore units;
+    std::vector<std::string> players;
+    bool is_host;
+    std::string nickname;
+    std::string game_id;
+    int pretend_fraction = 0;
+    bool init_done = false;
 
-    GameState(std::shared_ptr<AppState> as) : app_state(as) {}
+
+    GameState(std::shared_ptr<AppState> as, std::shared_ptr<Connection> conn) : app_state(as), connection(conn) {}
 
     GameState(const GameState&) = delete;
     GameState(GameState&&) = delete;
@@ -37,6 +48,42 @@ struct GameState {
             world.at_ref_normalized(hc).setFractionVisibility(unit.fraction, HexData::Visibility::SUPERIOR);
         }
     };
+
+    void ConnectAndInitialize (auto on_done, std::optional<std::string> selected_world_gen = {}, std::optional<std::unordered_map<std::string, std::variant<double, std::string, bool>>> worldgen_options = {}) {
+        connection->registerPacketHandler(ProxyDataPacket::packetId, [&](PacketReader &reader) {
+        auto packet = ProxyDataPacket::deserialize(reader);
+            std::cout << "Players:" << std::endl;
+            for (const auto &item: packet.players){
+                std::cout << item << std::endl;
+            }
+            is_host = packet.is_host;
+            players = packet.players;
+            nickname = this->nickname;
+            game_id = packet.game_id;
+            if(is_host){
+                RunWorldgen(app_state->resourceStore.GetGenerator(app_state->resourceStore.FindGeneratorIndex(selected_world_gen.value_or(std::string("default")))), worldgen_options.value_or(std::unordered_map<std::string, std::variant<double, std::string, bool>>{}));
+                // reveal a starting area
+                world.at_ref_normalized(HexCoords::from_axial(1, 1)).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+                for(auto c : HexCoords::from_axial(1, 1).neighbours()) {
+                    world.at_ref_normalized(c).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+                }
+
+                if (!init_done) {
+                    on_done();
+                    init_done = true;
+                }
+            }
+        });
+        connection->registerPacketHandler(WorldUpdatePacket::packetId, [&](PacketReader &reader){
+            auto packet = WorldUpdatePacket::deserialize(reader);
+            this->world = std::move(packet.world);
+            if (!init_done) {
+                on_done();
+                init_done = true;
+            }
+        });
+        connection->writeToHost(LoginPacket{game_id, nickname});
+    }
 
     void RunWorldgen(const WorldGen& gen, std::unordered_map<std::string, std::variant<double, std::string, bool>> options) {
         using sol::as_function;
