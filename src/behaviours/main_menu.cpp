@@ -35,10 +35,10 @@ void behaviours::MainMenu::loop(BehaviourStack &bs) {
       auto gs = std::make_shared<GameState>(app_state, connection);
       gs->nickname = nickname_writebox.getText();
 
-      auto loader = std::make_shared<behaviours::LoadingScreen<behaviours::MainGame>>([connection, ran = false, gs](auto&, auto& loader) mutable {      
+      auto loader = std::make_shared<behaviours::LoadingScreen<behaviours::MainGame>>([connection, ran = false, gs](auto&, auto loader) mutable {
         if (!ran) {
           ran = true;
-          gs->ConnectAndInitialize([gs, loader = loader.shared_from_this()]{
+          gs->ConnectAndInitialize([gs, loader]{
             auto ps = std::make_shared<PlayerState>(gs);
             logging::debug("Ready to proceed");
             loader->signal_done(new behaviours::MainGame(ps));

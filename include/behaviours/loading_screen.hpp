@@ -9,7 +9,7 @@ template <typename TNext>
 struct LoadingScreen : public std::enable_shared_from_this<LoadingScreen<TNext>> {
     bool done = false;
     TNext* next = nullptr;
-    std::optional<std::function<void(BehaviourStack&, LoadingScreen&)>> during;
+    std::optional<std::function<void(BehaviourStack&, std::shared_ptr<LoadingScreen>)>> during;
     float font_size = 32.0f;
     const char *text = "Loading...";
     float time = 0.0f;
@@ -30,7 +30,8 @@ struct LoadingScreen : public std::enable_shared_from_this<LoadingScreen<TNext>>
         }
         
         if (during.has_value()) {
-            during.value()(bs, *this);
+            auto d = during.value();
+            d(bs, this->shared_from_this());
         }
         
         time += GetFrameTime();
