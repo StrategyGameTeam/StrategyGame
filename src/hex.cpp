@@ -124,17 +124,91 @@ HexCoords HexCoords::from_world_unscaled(float x, float y) {
     return rounded_to_hex(comp_q, comp_r, comp_s);
 }
 
-std::vector<HexCoords> HexCoords::make_line(const HexCoords from, const HexCoords to) {
-    const float steps = from.distance(to) + 1;
-    const auto isteps = 1.0f/steps;
-    const auto [sx, sy] = from.to_world_unscaled();
-    const auto [ex, ey] = to.to_world_unscaled();
-    const auto dx = ex-sx;
-    const auto dy = ey-sy;
-    std::vector<HexCoords> result;
-    result.reserve(steps);
-    for(int i = 0; i < steps; i++) {
-        result.push_back(HexCoords::from_world_unscaled(sx + dx*isteps*i, sy+dy*isteps*i));
+//to be removed in future
+struct PFHexCoords: HexCoords{
+    int travel_cost;
+    int estimated_cost;
+};
+
+int getPathCost(const HexCoords from, const HexCoords to){
+    return std::max(abs(from.r - to.r), std::max(abs(from.q - to.q), abs(from.s - to.s)));
+}
+
+std::pair<unsigned int, std::vector<HexCoords>>
+HexCoords::make_line(const HexCoords from, const HexCoords to, unsigned int max_cost) {
+    std::vector<PFHexCoords> open;
+    std::vector<PFHexCoords> closed;
+    auto current = PFHexCoords{from, 0, getPathCost(from, to)};
+    open.push_back(current);
+
+    std::optional<PFHexCoords> end = {};
+
+    while (!open.empty())
+    {
+        std::sort(open.begin(), open.end(), [](PFHexCoords &a, PFHexCoords &b){
+            if(a.estimated_cost + a.travel_cost == b.estimated_cost + b.travel_cost){
+                return a.travel_cost > b.travel_cost;
+            }
+            return a.estimated_cost + a.travel_cost < b.estimated_cost + b.travel_cost;
+        });
+        current = open.at(0);
+        open.erase(open.begin());
+
+        if(current.r == to.r && current.q == to.q && current.s == to.s){
+            end = current;
+            break;
+        }
+
+        closed.push_back(current);
+
+        int travel_cost = current.travel_cost + 1;
+
+        for (const auto &item: current.neighbours()){
+            auto neighbour = PFHexCoords{item, 0, 0};
+
+            if (std::find_if(closed.begin(), closed.end(),[&neighbour](PFHexCoords &item){
+               return item.r == neighbour.r && item.q == neighbour.q && item.s == neighbour.s;
+            }) != closed.end())
+            {
+                continue;
+            }
+
+            if (std::find_if(open.begin(), open.end(),[&neighbour](PFHexCoords &item){
+                return item.r == neighbour.r && item.q == neighbour.q && item.s == neighbour.s;
+            }) == open.end())
+            {
+                neighbour.travel_cost = travel_cost;
+                neighbour.estimated_cost = getPathCost(neighbour, to);
+                if(neighbour.travel_cost <= max_cost) {
+                    open.push_back(neighbour);
+                }
+            }
+            else if (neighbour.travel_cost + neighbour.estimated_cost > travel_cost + neighbour.estimated_cost)
+            {
+                neighbour.travel_cost = travel_cost;
+            }
+        }
     }
-    return result;
+
+    std::vector<HexCoords> path;
+    if (end.has_value())
+    {
+        current = end.value();
+        path.push_back(current);
+
+        for (int i = end->travel_cost - 1; i >= 0; i--)
+        {
+            current = *std::find_if(closed.begin(), closed.end(),[&](PFHexCoords &item){
+                return item.travel_cost == i && std::find_if(current.neighbours().begin(), current.neighbours().end(),[&item](HexCoords &neighbour){
+                    return item.r == neighbour.r && item.q == neighbour.q && item.s == neighbour.s;
+                }) != current.neighbours().end();
+            });
+            path.push_back(current);
+        }
+
+        std::reverse(path.begin(), path.end());
+    }
+
+    return std::make_pair(0, path);
+
 }

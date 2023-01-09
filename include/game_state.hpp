@@ -34,18 +34,18 @@ struct GameState {
     }
 
     template <UnitType UT>
-    void MoveUnit(HexCoords from, HexCoords to) {
+    void MoveUnit(HexCoords from, std::vector<HexCoords> path) {
         auto munit = units.get_all_on_hex(from).get_opt_unit<UT>();
         if (!munit.has_value()) {
             return; // ! Maybe throw? Error is unhandled
         }
         auto unit = munit.value();
-        // TODO - reaveal along path
-        // TODO - allow this function to get the path
         // TODO - does this function need to get the path? or is it good enough to just, pathfind in here?
-        units.teleport_unit<UT>(from, to);
-        for(const auto hc : to.spiral_around(unit.vission_range)) {
-            world.at_ref_normalized(hc).setFractionVisibility(unit.fraction, HexData::Visibility::SUPERIOR);
+        units.teleport_unit<UT>(from, path.back());
+        for (const auto &item: path){
+            for(const auto hc : item.spiral_around(unit.vission_range)) {
+                world.at_ref_normalized(hc).setFractionVisibility(unit.fraction, HexData::Visibility::SUPERIOR);
+            }
         }
     };
 

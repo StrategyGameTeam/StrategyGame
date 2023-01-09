@@ -156,19 +156,25 @@ behaviours::MainGame::loop(BehaviourStack& bs)
     }
   }
 
+  std::vector<HexCoords> movement_path;
+  if (ps.selected_unit.has_value()) {
+      const auto path =
+              HexCoords::make_line(ps.selected_unit.value().first, hovered_coords, 20);
+      movement_path = path.second;
+  }
+
   if (ps.selected_unit.has_value() &&
       IsMouseButtonReleased(MOUSE_RIGHT_BUTTON)) {
-    // ps.selected_unit.value().first = hovered_coords;
     auto [location, type] = ps.selected_unit.value();
     switch (type) {
       case UnitType::Millitary:
-        gs.MoveUnit<UnitType::Millitary>(location, hovered_coords);
+        gs.MoveUnit<UnitType::Millitary>(location, movement_path);
         break;
       case UnitType::Civilian:
-        gs.MoveUnit<UnitType::Civilian>(location, hovered_coords);
+        gs.MoveUnit<UnitType::Civilian>(location, movement_path);
         break;
       case UnitType::Special:
-        gs.MoveUnit<UnitType::Special>(location, hovered_coords);
+        gs.MoveUnit<UnitType::Special>(location, movement_path);
         break;
       default:;
     }
@@ -200,12 +206,6 @@ behaviours::MainGame::loop(BehaviourStack& bs)
     { bottom_right.x, bottom_right.z });
 
   const auto rendering_start = std::chrono::steady_clock::now();
-
-  std::vector<HexCoords> movement_path;
-  if (ps.selected_unit.has_value()) {
-    movement_path =
-      HexCoords::make_line(ps.selected_unit.value().first, hovered_coords);
-  }
 
   BeginDrawing();
   {

@@ -93,7 +93,7 @@ struct HexCoords {
 
     static HexCoords from_world_unscaled(float x, float y);
 
-    static std::vector<HexCoords> make_line(const HexCoords from, const HexCoords to);
+    static std::pair<unsigned int, std::vector<HexCoords>> make_line(const HexCoords from, const HexCoords to, unsigned int max_cost);
 
     static HexCoords from_offset(int col, int row);
     std::vector<HexCoords> ring_around(int range) const;
