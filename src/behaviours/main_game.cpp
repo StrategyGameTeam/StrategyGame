@@ -158,11 +158,13 @@ behaviours::MainGame::loop(BehaviourStack& bs)
 
   std::vector<HexCoords> movement_path;
   if (ps.selected_unit.has_value()) {
-      movement_path = gs.world.make_line(ps.selected_unit.value().first, hovered_coords, 20);
+      movement_path = gs.world.make_line(ps.selected_unit.value().first, hovered_coords, 20, [&](HexData &data){
+            return as.resourceStore.m_hex_table.at(data.tileid).movement_cost;
+      });
   }
 
   if (ps.selected_unit.has_value() &&
-      IsMouseButtonReleased(MOUSE_RIGHT_BUTTON)) {
+      IsMouseButtonReleased(MOUSE_RIGHT_BUTTON) && movement_path.size() > 1) {
     auto [location, type] = ps.selected_unit.value();
     switch (type) {
       case UnitType::Millitary:

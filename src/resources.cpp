@@ -135,6 +135,7 @@ void ResourceStore::LoadHexes(ModuleLoader& modl, const Module &mod, std::vector
             sol::table tab = rtab; 
             sol::string_view name = G.GetRequired<sol::string_view, sol::type::string>(tab, "name");
             sol::string_view model = G.GetRequired<sol::string_view, sol::type::string>(tab, "model");
+            int movement_cost = G.GetRequired<int, sol::type::number>(tab, "movement_cost");
             auto description = G.GetOptional<sol::string_view, sol::type::string>(tab, "description");
             auto products = G.GetOptional<sol::table, sol::type::table>(tab, "products");
             auto vis_cost = G.GetOptional<int, sol::type::number>(tab, "vision_cost");
@@ -148,6 +149,7 @@ void ResourceStore::LoadHexes(ModuleLoader& modl, const Module &mod, std::vector
             
             def.name = name;
             def.model = LoadModel(model_path.value().string().c_str());
+            def.movement_cost = movement_cost;
             if (description.has_value()) def.description = description.value();
             if (products.has_value()) {
                 for(auto& [key, value] : products.value()) {

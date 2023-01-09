@@ -1,4 +1,5 @@
 return {
     name = "SandRocks",
-    model = "models/sand_rocks.obj"
+    model = "models/sand_rocks.obj",
+    movement_cost = 1
 }

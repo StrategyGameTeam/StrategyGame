@@ -8,6 +8,7 @@
 #include <raymath.h>
 #include <random>
 #include <algorithm>
+#include <functional>
 #include "connection.hpp"
 
 /*
@@ -293,7 +294,8 @@ struct CylinderHexWorld {
         return std::max(abs(from.r - to.r), std::max(abs(from.q - to.q), abs(from.s - to.s)));
     }
 
-    std::vector<HexCoords> make_line(const HexCoords from, const HexCoords to, unsigned int max_cost){
+    std::vector<HexCoords> make_line(const HexCoords from, const HexCoords to, unsigned int max_cost,
+                                     std::function<int(HexT&)> travel_cost_func){
         std::vector<PFHexCoords> open;
         std::vector<PFHexCoords> closed;
         auto current = PFHexCoords{from, 0, getPathCost(from, to)};
@@ -319,7 +321,7 @@ struct CylinderHexWorld {
 
             closed.push_back(current);
 
-            int travel_cost = current.travel_cost + 1;
+            int travel_cost = current.travel_cost + travel_cost_func(at_ref_normalized(current));
 
             for (const auto &item: current.neighbours()){
                 auto neighbour = PFHexCoords{item, 0, 0};
