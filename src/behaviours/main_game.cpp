@@ -158,9 +158,7 @@ behaviours::MainGame::loop(BehaviourStack& bs)
 
   std::vector<HexCoords> movement_path;
   if (ps.selected_unit.has_value()) {
-      const auto path =
-              HexCoords::make_line(ps.selected_unit.value().first, hovered_coords, 20);
-      movement_path = path.second;
+      movement_path = gs.world.make_line(ps.selected_unit.value().first, hovered_coords, 20);
   }
 
   if (ps.selected_unit.has_value() &&
