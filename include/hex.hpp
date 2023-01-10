@@ -355,19 +355,18 @@ struct CylinderHexWorld {
         {
             current = end.value();
             path.push_back(current);
+            std::sort(closed.begin(), closed.end(), [](PFHexCoords &a, PFHexCoords &b){
+                return a.travel_cost < b.travel_cost;
+            });
 
-            for (int i = end->travel_cost - 1; i >= 0; i--)
+            for (int i = end->travel_cost - 1; i >= 0; i = current.travel_cost - 1)
             {
-                auto biggest = std::find_if(closed.begin(), closed.end(),[&](PFHexCoords &item){
+                current = *std::find_if(closed.begin(), closed.end(),[&](PFHexCoords &item){
                     auto neighbours = current.neighbours();
-                    return item.travel_cost == i && std::find_if(neighbours.begin(), neighbours.end(),[&item](HexCoords &neighbour){
+                    return item.travel_cost <= i && std::find_if(neighbours.begin(), neighbours.end(),[&item](HexCoords &neighbour){
                         return item.r == neighbour.r && item.q == neighbour.q && item.s == neighbour.s;
                     }) != neighbours.end();
                 });
-                if(biggest == closed.end()){
-                    continue;
-                }
-                current = *biggest;
                 path.push_back(current);
             }
 
