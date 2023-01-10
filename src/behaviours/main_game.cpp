@@ -222,7 +222,7 @@ behaviours::MainGame::loop(BehaviourStack& bs)
         if (coords == hovered_coords) {
           tint = BLUE;
         }
-        if(std::find_if(closed_path.begin(), closed_path.end(),[&](HexCoords &c){
+        if(as.debug || std::find_if(closed_path.begin(), closed_path.end(),[&](HexCoords &c){
             return c.q == coords.q && c.r == coords.r && c.s == coords.s;
         }) != closed_path.end()){
             tint = RED;
