@@ -1,5 +1,5 @@
 return {
     name = "Water",
     model = "models/water.obj",
-    movement_cost = 1
+    movement_cost = 5
 }

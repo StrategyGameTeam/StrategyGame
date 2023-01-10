@@ -294,7 +294,7 @@ struct CylinderHexWorld {
         return std::max(abs(from.r - to.r), std::max(abs(from.q - to.q), abs(from.s - to.s)));
     }
 
-    std::vector<HexCoords> make_line(const HexCoords from, const HexCoords to, unsigned int max_cost,
+    std::pair<std::vector<HexCoords>,std::vector<PFHexCoords>> make_line(const HexCoords from, const HexCoords to, unsigned int max_cost,
                                      std::function<int(HexT&)> travel_cost_func){
         std::vector<PFHexCoords> open;
         std::vector<PFHexCoords> closed;
@@ -309,7 +309,7 @@ struct CylinderHexWorld {
                 if(a.estimated_cost + a.travel_cost == b.estimated_cost + b.travel_cost){
                     return a.travel_cost > b.travel_cost;
                 }
-                return a.estimated_cost + a.travel_cost < b.estimated_cost + b.travel_cost;
+                return (a.estimated_cost + a.travel_cost) < (b.estimated_cost + b.travel_cost);
             });
             current = open.at(0);
             open.erase(open.begin());
@@ -358,18 +358,23 @@ struct CylinderHexWorld {
 
             for (int i = end->travel_cost - 1; i >= 0; i--)
             {
-                current = *std::find_if(closed.begin(), closed.end(),[&](PFHexCoords &item){
-                    return item.travel_cost == i && std::find_if(current.neighbours().begin(), current.neighbours().end(),[&item](HexCoords &neighbour){
+                auto biggest = std::find_if(closed.begin(), closed.end(),[&](PFHexCoords &item){
+                    auto neighbours = current.neighbours();
+                    return item.travel_cost == i && std::find_if(neighbours.begin(), neighbours.end(),[&item](HexCoords &neighbour){
                         return item.r == neighbour.r && item.q == neighbour.q && item.s == neighbour.s;
-                    }) != current.neighbours().end();
+                    }) != neighbours.end();
                 });
+                if(biggest == closed.end()){
+                    continue;
+                }
+                current = *biggest;
                 path.push_back(current);
             }
 
             std::reverse(path.begin(), path.end());
         }
 
-        return path;
+        return std::make_pair(path, closed);
 
     }
 };
