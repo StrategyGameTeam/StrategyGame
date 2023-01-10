@@ -159,7 +159,7 @@ behaviours::MainGame::loop(BehaviourStack& bs)
   std::vector<HexCoords> movement_path;
   std::vector<PFHexCoords> closed_path;
   if (ps.selected_unit.has_value()) {
-      const auto [path, closed] = gs.world.make_line(ps.selected_unit.value().first, hovered_coords, 20, [&](HexData &data){
+      const auto [path, closed] = gs.world.make_line(ps.selected_unit.value().first, hovered_coords, 50, [&](HexData &data){
             return as.resourceStore.m_hex_table.at(data.tileid).movement_cost;
       });
       movement_path = path;
@@ -222,7 +222,7 @@ behaviours::MainGame::loop(BehaviourStack& bs)
         if (coords == hovered_coords) {
           tint = BLUE;
         }
-        if(as.debug || std::find_if(closed_path.begin(), closed_path.end(),[&](HexCoords &c){
+        if(as.debug && std::find_if(closed_path.begin(), closed_path.end(),[&](HexCoords &c){
             return c.q == coords.q && c.r == coords.r && c.s == coords.s;
         }) != closed_path.end()){
             tint = RED;

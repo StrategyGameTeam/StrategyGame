@@ -191,10 +191,12 @@ struct EdgeCoords {
 };
 
 
-//to be removed in future
-struct PFHexCoords: HexCoords{
+struct PFHexCoords: HexCoords {
     int travel_cost;
     int estimated_cost;
+    int getTotalCost(){
+        return travel_cost + estimated_cost;
+    }
 };
 
 template<typename HexT>
@@ -306,15 +308,15 @@ struct CylinderHexWorld {
         while (!open.empty())
         {
             std::sort(open.begin(), open.end(), [](PFHexCoords &a, PFHexCoords &b){
-                if(a.estimated_cost + a.travel_cost == b.estimated_cost + b.travel_cost){
+                if(a.getTotalCost() == b.getTotalCost()){
                     return a.travel_cost > b.travel_cost;
                 }
-                return (a.estimated_cost + a.travel_cost) < (b.estimated_cost + b.travel_cost);
+                return a.getTotalCost() < b.getTotalCost();
             });
             current = open.at(0);
             open.erase(open.begin());
 
-            if(current.r == to.r && current.q == to.q && current.s == to.s){
+            if(current == to){
                 end = current;
                 break;
             }
@@ -326,16 +328,12 @@ struct CylinderHexWorld {
             for (const auto &item: current.neighbours()){
                 auto neighbour = PFHexCoords{item, 0, 0};
 
-                if (std::find_if(closed.begin(), closed.end(),[&neighbour](PFHexCoords &item){
-                    return item.r == neighbour.r && item.q == neighbour.q && item.s == neighbour.s;
-                }) != closed.end())
+                if (std::find(closed.begin(), closed.end(), neighbour) != closed.end())
                 {
                     continue;
                 }
 
-                if (std::find_if(open.begin(), open.end(),[&neighbour](PFHexCoords &item){
-                    return item.r == neighbour.r && item.q == neighbour.q && item.s == neighbour.s;
-                }) == open.end())
+                if (std::find(open.begin(), open.end(), neighbour) == open.end())
                 {
                     neighbour.travel_cost = travel_cost;
                     neighbour.estimated_cost = getPathCost(neighbour, to);
@@ -343,7 +341,7 @@ struct CylinderHexWorld {
                         open.push_back(neighbour);
                     }
                 }
-                else if (neighbour.travel_cost + neighbour.estimated_cost > travel_cost + neighbour.estimated_cost)
+                else if (neighbour.getTotalCost() > travel_cost + neighbour.estimated_cost)
                 {
                     neighbour.travel_cost = travel_cost;
                 }
@@ -363,9 +361,7 @@ struct CylinderHexWorld {
             {
                 current = *std::find_if(closed.begin(), closed.end(),[&](PFHexCoords &item){
                     auto neighbours = current.neighbours();
-                    return item.travel_cost <= i && std::find_if(neighbours.begin(), neighbours.end(),[&item](HexCoords &neighbour){
-                        return item.r == neighbour.r && item.q == neighbour.q && item.s == neighbour.s;
-                    }) != neighbours.end();
+                    return item.travel_cost <= i && std::find(neighbours.begin(), neighbours.end(),item) != neighbours.end();
                 });
                 path.push_back(current);
             }
