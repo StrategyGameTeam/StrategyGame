@@ -114,6 +114,19 @@ struct GameState {
         connection->registerPacketHandler(WorldUpdatePacket::packetId, [&](PacketReader &reader) {
             auto packet = WorldUpdatePacket::deserialize(reader);
             this->world = std::move(packet.world);
+
+            // reveal a starting area
+            std::mt19937 rg{std::random_device{}()};
+            std::uniform_int_distribution<std::string::size_type> widthPick(0, world.width-2);
+            std::uniform_int_distribution<std::string::size_type> heightPick(0, world.height-2);
+            while(app_state->resourceStore.m_hex_table.at(world.at_ref_normalized(HexCoords::from_axial(startX = widthPick(rg), startY = heightPick(rg))).tileid).name != "Grass");
+            world.at_ref_normalized(HexCoords::from_axial(startX, startY))
+                    .setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+            for (auto c : HexCoords::from_axial(startX, startY).neighbours()) {
+                world.at_ref_normalized(c).setFractionVisibility(
+                        pretend_fraction, HexData::Visibility::SUPERIOR);
+            }
+
             if (!init_done) {
                 on_done();
                 init_done = true;

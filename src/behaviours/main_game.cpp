@@ -86,16 +86,6 @@ behaviours::MainGame::loop(BehaviourStack& bs)
   GameState& gs = *ps.gs;
   AppState& as = *gs.app_state;
 
-  if(gs.is_host){
-      //game server implementation
-      int total_stamina = 0;
-      for (const auto &item: gs.units.m_store)
-          total_stamina += item.second.getStamina();
-      if(total_stamina == 0){
-          //todo: ready for next round
-      }
-  }
-
   const auto frame_start = std::chrono::steady_clock::now();
   // for some reason, dragging around is unstable
   // i know, that the logical cursor is slightly delayed, but still, it should
