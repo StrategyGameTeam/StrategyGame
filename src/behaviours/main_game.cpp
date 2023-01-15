@@ -80,8 +80,12 @@ behaviours::MainGame::initialize()
 
   gs.connection->registerPacketHandler(CreateMilitaryUnitPacket::packetId, [&](PacketReader &reader){
       auto packet = CreateMilitaryUnitPacket::deserialize(reader);
-      std::cout << "Player " << packet.unit.owner << " created military unit" << std::endl;
       gs.units.put_unit_on_hex(packet.coords, packet.unit);
+  });
+
+  gs.connection->registerPacketHandler(MoveUnitPacket::packetId, [&](PacketReader &reader){
+      auto packet = MoveUnitPacket::deserialize(reader);
+      gs.units.teleport_unit<UnitType::Millitary>(packet.from, packet.to);
   });
 
     gs.connection->registerPacketHandler(InitializePlayerRequestPacket::packetId, [&](PacketReader &reader){
@@ -225,6 +229,7 @@ behaviours::MainGame::loop(BehaviourStack& bs)
     std::for_each(movement_path.begin() + 1, movement_path.end(),[&](HexCoords &coords){
         gs.units.get_all_on_hex(movement_path.back()).addStamina(-1 * as.resourceStore.m_hex_table.at(gs.world.at_ref_normalized(coords).tileid).movement_cost);
     });
+    gs.broadcast(MoveUnitPacket{.from = location, .to = movement_path.back()});
 
     ps.selected_unit.value().first = hovered_coords;
     gs.UpdateVission(ps.fraction);

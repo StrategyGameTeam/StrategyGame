@@ -47,7 +47,6 @@ struct CreateMilitaryUnitPacket {
         wr.writeInt(unit.vission_range);
         wr.writeInt(unit.stamina);
         wr.writeString(unit.owner);
-        std::cout << "q: " << coords.q << " r: " << coords.r << " s: " << coords.s << std::endl;
     }
 
     static CreateMilitaryUnitPacket deserialize(PacketReader &reader){
@@ -56,7 +55,6 @@ struct CreateMilitaryUnitPacket {
         int s = reader.readInt();
 
         HexCoords coords{q,r,s};
-        std::cout << "q: " << coords.q << " r: " << coords.r << " s: " << coords.s << std::endl;
 
         int id = reader.readInt();
         int fraction = reader.readInt();
@@ -73,6 +71,35 @@ struct CreateMilitaryUnitPacket {
         unit.stamina = stamina;
         unit.owner = owner;
         return CreateMilitaryUnitPacket{.coords = coords, .unit = unit};
+    }
+
+};
+
+struct MoveUnitPacket {
+    static const std::string packetId;
+    HexCoords from;
+    HexCoords to;
+
+    void serialize(PacketWriter &wr) const {
+        wr.writeInt(from.q);
+        wr.writeInt(from.r);
+        wr.writeInt(from.s);
+        wr.writeInt(to.q);
+        wr.writeInt(to.r);
+        wr.writeInt(to.s);
+    }
+
+    static MoveUnitPacket deserialize(PacketReader &reader){
+        int q = reader.readInt();
+        int r = reader.readInt();
+        int s = reader.readInt();
+        HexCoords from{q,r,s};
+        q = reader.readInt();
+        r = reader.readInt();
+        s = reader.readInt();
+        HexCoords to{q,r,s};
+
+        return MoveUnitPacket{.from = from, .to = to};
     }
 
 };
