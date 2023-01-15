@@ -77,6 +77,11 @@ std::string Writebox::getText()
 	return text;
 }
 
+void Writebox::setText(std::string t)
+{
+	text = t;
+}
+
 float Writebox::getWidth() const {
     return box.width;
 }

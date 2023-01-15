@@ -277,7 +277,7 @@ struct CylinderHexWorld {
     }
 
     std::pair<std::vector<HexCoords>,std::vector<PFHexCoords>> make_line(const HexCoords from, const HexCoords to, unsigned int max_cost,
-                                     std::function<int(HexT&)> travel_cost_func){
+                                     std::function<int(HexCoords&,HexT&)> travel_cost_func){
         std::vector<PFHexCoords> open;
         std::vector<PFHexCoords> closed;
         auto current = PFHexCoords{from, 0, getPathCost(from, to)};
@@ -303,7 +303,7 @@ struct CylinderHexWorld {
 
             closed.push_back(current);
 
-            int travel_cost = current.travel_cost + travel_cost_func(at_ref_normalized(current));
+            int travel_cost = current.travel_cost;
 
             for (const auto &item: current.neighbours()){
                 auto neighbour = PFHexCoords{item, 0, 0};
@@ -315,7 +315,7 @@ struct CylinderHexWorld {
 
                 if (std::find(open.begin(), open.end(), neighbour) == open.end())
                 {
-                    neighbour.travel_cost = travel_cost;
+                    neighbour.travel_cost = travel_cost + travel_cost_func(neighbour, at_ref_normalized(neighbour));
                     neighbour.estimated_cost = getPathCost(neighbour, to);
                     if(neighbour.travel_cost <= max_cost) {
                         open.push_back(neighbour);

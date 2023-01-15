@@ -33,6 +33,11 @@ struct MainMenu {
     
     void initialize() {
         adjust_to_window();
+        connection_addr_writebox.setText("localhost:4242");
+        std::mt19937 rg{std::random_device{}()};
+        std::uniform_int_distribution<std::string::size_type> pick(0, 1000);
+
+        nickname_writebox.setText("Player" + std::to_string(pick(rg)));
     }
     void loop (BehaviourStack& bs);
 

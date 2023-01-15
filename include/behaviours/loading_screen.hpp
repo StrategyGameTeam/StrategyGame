@@ -21,7 +21,7 @@ struct LoadingScreen : public std::enable_shared_from_this<LoadingScreen<TNext>>
 
     LoadingScreen(decltype(during) loop_element = {}) : during(loop_element) {};
 
-    void initialize() {}; 
+    void initialize() {};
     void loop (BehaviourStack& bs) {
         if (done && next != nullptr) {
             // remove self, insert next, FIFO semantics

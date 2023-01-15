@@ -33,7 +33,8 @@ public:
 	void handle_events(int key_pressed);
 	std::string confirm();
 	std::string getText();
-	void draw() const;
+    void setText(std::string t);
+    void draw() const;
     float getWidth() const;
     float getHeight() const;
 

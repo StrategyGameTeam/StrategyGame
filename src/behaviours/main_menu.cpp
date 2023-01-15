@@ -30,10 +30,11 @@ void behaviours::MainMenu::loop(BehaviourStack &bs) {
         error_text.set_text("Port out of range");
         return;
       }
-      
+
       auto connection = std::make_shared<Connection>(ip, port);
       auto gs = std::make_shared<GameState>(app_state, connection);
       gs->nickname = nickname_writebox.getText();
+      gs->game_id = game_id_writebox.getText();
 
       auto loader = std::make_shared<behaviours::LoadingScreen<behaviours::MainGame>>([connection, ran = false, gs](auto&, auto loader) mutable {
         if (!ran) {

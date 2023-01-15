@@ -8,6 +8,7 @@ struct BaseUnitData {
     int health;
     int vission_range = 1;
     int stamina = 100;
+    std::string owner;
 };
 
 struct MilitaryUnit : public BaseUnitData {
@@ -35,6 +36,19 @@ struct UnitsOnTile {
         return military.has_value() || civilian.has_value() || special.has_value();
     }
 
+    std::string getOwner() const {
+        if(military.has_value()){
+            return military.value().owner;
+        }
+        if(civilian.has_value()){
+            return civilian.value().owner;
+        }
+        if(special.has_value()){
+            return special.value().owner;
+        }
+        return "";
+    }
+
     int getStamina() const {
         if(military.has_value()){
             return military.value().stamina;
@@ -58,6 +72,10 @@ struct UnitsOnTile {
         if(special.has_value()){
             special.value().stamina += stamina;
         }
+    }
+
+    bool isCurrentUser(std::string &nickname) const {
+        return getOwner() == nickname;
     }
 
     template <UnitType Type>

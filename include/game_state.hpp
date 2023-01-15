@@ -21,6 +21,7 @@ struct GameState {
     std::string game_id;
     int pretend_fraction = 0;
     bool init_done = false;
+    bool ran = false;
     int startX, startY;
 
 
@@ -212,4 +213,11 @@ struct GameState {
             std::cerr << "World gen somehow failed\n";
         }
     };
+
+    template<Packet T>
+    void broadcast(const T packet){
+        for (const auto &item: players)
+            if(item != nickname)
+                connection->writeToPlayer(item, packet);
+    }
 };

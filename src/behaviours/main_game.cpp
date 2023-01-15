@@ -22,6 +22,7 @@ behaviours::MainGame::initialize()
 {
   GameState& gs = *player_state->gs;
   AppState& as = *gs.app_state;
+  gs.connection->clearHandlers();
 
   logging::debug(__func__, "started");
   as.inputMgr.registerAction(
@@ -76,6 +77,32 @@ behaviours::MainGame::initialize()
     Rectangle{ .x = 168, .y = 108, .width = 11, .height = 15 };
 
   HideCursor();
+
+  gs.connection->registerPacketHandler(CreateMilitaryUnitPacket::packetId, [&](PacketReader &reader){
+      auto packet = CreateMilitaryUnitPacket::deserialize(reader);
+      std::cout << "Player " << packet.unit.owner << " created military unit" << std::endl;
+      gs.units.put_unit_on_hex(packet.coords, packet.unit);
+  });
+
+    gs.connection->registerPacketHandler(InitializePlayerRequestPacket::packetId, [&](PacketReader &reader){
+        auto packet = InitializePlayerRequestPacket::deserialize(reader);
+        std::cout << "INITIALIZE PLAYER: " << packet.player << std::endl;
+        gs.connection->writeToPlayer(packet.player, WorldUpdatePacket{gs.world});
+    });
+    gs.connection->registerPacketHandler(ProxyDataPacket::packetId, [&](PacketReader &reader) {
+        auto packet = ProxyDataPacket::deserialize(reader);
+        std::cout << "Players:" << std::endl;
+        for (const auto &item: packet.players) {
+            std::cout << item << std::endl;
+        }
+        gs.is_host = packet.is_host;
+        gs.players = packet.players;
+        gs.game_id = packet.game_id;
+    });
+    gs.connection->registerPacketHandler(WorldUpdatePacket::packetId, [&](PacketReader &reader) {
+        auto packet = WorldUpdatePacket::deserialize(reader);
+        gs.world = std::move(packet.world);
+    });
 }
 
 void
@@ -85,6 +112,8 @@ behaviours::MainGame::loop(BehaviourStack& bs)
   PlayerState& ps = *player_state;
   GameState& gs = *ps.gs;
   AppState& as = *gs.app_state;
+
+  gs.connection->handleTasks();
 
   const auto frame_start = std::chrono::steady_clock::now();
   // for some reason, dragging around is unstable
@@ -125,7 +154,7 @@ behaviours::MainGame::loop(BehaviourStack& bs)
   if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) &&
       Vector2DistanceSqr(click_start_screen_pos, mouse_position) < 250.0f) {
     auto& units = gs.units.get_all_on_hex(hovered_coords);
-    if (units.has_any()) {
+    if (units.has_any() && units.isCurrentUser(gs.nickname)) {
       if (ps.selected_unit.has_value() &&
           ps.selected_unit.value().first == hovered_coords) {
         auto already_present_type = ps.selected_unit.value().second;
@@ -167,7 +196,10 @@ behaviours::MainGame::loop(BehaviourStack& bs)
   std::vector<HexCoords> movement_path;
   std::vector<PFHexCoords> closed_path;
   if (ps.selected_unit.has_value()) {
-      const auto [path, closed] = gs.world.make_line(ps.selected_unit.value().first, hovered_coords, gs.units.get_all_on_hex(ps.selected_unit->first).getStamina(), [&](HexData &data){
+      const auto [path, closed] = gs.world.make_line(ps.selected_unit.value().first, hovered_coords, gs.units.get_all_on_hex(ps.selected_unit->first).getStamina(), [&](HexCoords &loc, HexData &data){
+            if(loc != ps.selected_unit->first && gs.units.get_all_on_hex(loc).has_any()){
+                return INT_MAX;
+            }
             return as.resourceStore.m_hex_table.at(data.tileid).movement_cost;
       });
       movement_path = path;
@@ -199,8 +231,10 @@ behaviours::MainGame::loop(BehaviourStack& bs)
   }
 
   if (IsKeyPressed(KEY_U)) {
-    gs.units.put_unit_on_hex(hovered_coords,
-                             MilitaryUnit{ { .id = 1, .health = 100 } });
+    auto unit = MilitaryUnit{ { .id = 1, .health = 100, .owner = gs.nickname } };
+    gs.units.put_unit_on_hex(hovered_coords, unit);
+    gs.broadcast(CreateMilitaryUnitPacket{ .coords  = hovered_coords, .unit = unit});
+
   }
 
   // this is temporary and also terrible, and also shows the bad frustom in
@@ -250,19 +284,17 @@ behaviours::MainGame::loop(BehaviourStack& bs)
         }
 
         if (ps.selected_unit && coords == ps.selected_unit.value().first) {
-          DrawCircle3D(
-            Vector3{ tx, 0.3, ty }, 0.8f, Vector3{ 1, 0, 0 }, 90.0f, RED);
-          DrawCircle3D(
-            Vector3{ tx, 0.3, ty }, 0.75f, Vector3{ 1, 0, 0 }, 90.0f, RED);
+          DrawCircle3D(Vector3{ tx, 0.3, ty }, 0.8f, Vector3{ 1, 0, 0 }, 90.0f, RED);
+          DrawCircle3D(Vector3{ tx, 0.3, ty }, 0.75f, Vector3{ 1, 0, 0 }, 90.0f, RED);
         }
 
         auto units = gs.units.get_all_on_hex(coords);
         if (units.military.has_value()) {
-          DrawSphere(Vector3{ tx, 0.3, ty }, 0.4, RED);
+          DrawSphere(Vector3{ tx, 0.3, ty }, 0.4, gs.units.get_all_on_hex(coords).getOwner() == gs.nickname ? RED: GRAY);
         } else if (units.special.has_value()) {
-          DrawSphere(Vector3{ tx, 0.3, ty }, 0.4, YELLOW);
+          DrawSphere(Vector3{ tx, 0.3, ty }, 0.4, gs.units.get_all_on_hex(coords).getOwner() == gs.nickname ? YELLOW: GRAY);
         } else if (units.civilian.has_value()) {
-          DrawSphere(Vector3{ tx, 0.3, ty }, 0.4, GREEN);
+          DrawSphere(Vector3{ tx, 0.3, ty }, 0.4, gs.units.get_all_on_hex(coords).getOwner() == gs.nickname ? GREEN: GRAY);
         }
       }
 
@@ -283,7 +315,7 @@ behaviours::MainGame::loop(BehaviourStack& bs)
              BLACK);
       auto& hoveredUnits = gs.units.get_all_on_hex(hovered_coords);
       if(hoveredUnits.has_any()) {
-          DrawText(TextFormat("Stamina: %i", hoveredUnits.getStamina()), GetMouseX(), GetMouseY(), 10, BLACK);
+          DrawText(TextFormat("Stamina: %i, owner: %s", hoveredUnits.getStamina(), hoveredUnits.getOwner().c_str()), GetMouseX(), GetMouseY(), 10, BLACK);
       }
     if (as.debug) {
       DrawFPS(10, 10);
