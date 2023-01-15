@@ -349,7 +349,7 @@ struct CylinderHexWorld {
         }
 
         std::vector<HexCoords> path;
-        if (end.has_value())
+        if (end.has_value() && end->travel_cost < max_cost)
         {
             current = end.value();
             path.push_back(current);

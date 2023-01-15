@@ -7,6 +7,7 @@ struct BaseUnitData {
     int fraction;
     int health;
     int vission_range = 1;
+    int stamina = 100;
 };
 
 struct MilitaryUnit : public BaseUnitData {
@@ -32,6 +33,31 @@ struct UnitsOnTile {
     
     bool has_any () const {
         return military.has_value() || civilian.has_value() || special.has_value();
+    }
+
+    int getStamina() const {
+        if(military.has_value()){
+            return military.value().stamina;
+        }
+        if(civilian.has_value()){
+            return civilian.value().stamina;
+        }
+        if(special.has_value()){
+            return special.value().stamina;
+        }
+        return 0;
+    }
+
+    void addStamina(int stamina) {
+        if(military.has_value()){
+            military.value().stamina += stamina;
+        }
+        if(civilian.has_value()){
+            civilian.value().stamina += stamina;
+        }
+        if(special.has_value()){
+            special.value().stamina += stamina;
+        }
     }
 
     template <UnitType Type>

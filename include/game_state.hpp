@@ -21,6 +21,7 @@ struct GameState {
     std::string game_id;
     int pretend_fraction = 0;
     bool init_done = false;
+    int startX, startY;
 
 
     GameState(std::shared_ptr<AppState> as, std::shared_ptr<Connection> conn) : app_state(as), connection(conn) {}
@@ -40,6 +41,7 @@ struct GameState {
     template<UnitType UT>
     void MoveUnit(HexCoords from, std::vector<HexCoords> path, int max_vision_cost = 10) {
         auto munit = units.get_all_on_hex(from).get_opt_unit<UT>();
+
         if (!munit.has_value()) {
             return; // ! Maybe throw? Error is unhandled
         }
@@ -92,10 +94,15 @@ struct GameState {
                         selected_world_gen.value_or(std::string("default")))), worldgen_options.value_or(
                         std::unordered_map<std::string, std::variant<double, std::string, bool>>{}));
                 // reveal a starting area
-                world.at_ref_normalized(HexCoords::from_axial(1, 1)).setFractionVisibility(pretend_fraction,
-                                                                                           HexData::Visibility::SUPERIOR);
-                for (auto c: HexCoords::from_axial(1, 1).neighbours()) {
-                    world.at_ref_normalized(c).setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+                std::mt19937 rg{std::random_device{}()};
+                std::uniform_int_distribution<std::string::size_type> widthPick(0, world.width-2);
+                std::uniform_int_distribution<std::string::size_type> heightPick(0, world.height-2);
+                while(app_state->resourceStore.m_hex_table.at(world.at_ref_normalized(HexCoords::from_axial(startX = widthPick(rg), startY = heightPick(rg))).tileid).name != "Grass");
+                world.at_ref_normalized(HexCoords::from_axial(startX, startY))
+                        .setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
+                for (auto c : HexCoords::from_axial(startX, startY).neighbours()) {
+                    world.at_ref_normalized(c).setFractionVisibility(
+                            pretend_fraction, HexData::Visibility::SUPERIOR);
                 }
 
                 if (!init_done) {

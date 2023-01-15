@@ -1,4 +1,5 @@
 #include "behaviours/main_game.hpp"
+#include <random>
 
 namespace {
 Vector3
@@ -27,33 +28,40 @@ behaviours::MainGame::initialize()
     { "Toggle Debug Screen", [&] { as.debug = !as.debug; } },
     { KEY_Q, { KEY_LEFT_CONTROL } });
 
-  const int pretend_fraction = 0;
-  // reveal a starting area
-  gs.world.at_ref_normalized(HexCoords::from_axial(1, 1))
-    .setFractionVisibility(pretend_fraction, HexData::Visibility::SUPERIOR);
-  for (auto c : HexCoords::from_axial(1, 1).neighbours()) {
-    gs.world.at_ref_normalized(c).setFractionVisibility(
-      pretend_fraction, HexData::Visibility::SUPERIOR);
-  }
-
   camera.fovy = 60.0;
   camera.projection = CameraProjection::CAMERA_PERSPECTIVE;
   camera.up = Vector3{ 0, 1, 0 };
-  camera.target = Vector3{ 0, 0, 0 };
-  camera.position = Vector3{ 0, 10.0f, 5.0f };
+  camera.target = Vector3{ gs.startX * 1.73205080f + gs.startY * 1.73205080f/2.f, 0, gs.startY * 1.5f };
+  camera.position = Vector3{ gs.startX * 1.73205080f + gs.startY * 1.73205080f/2.f, 10.0f, gs.startY * 1.5f + 5.0f };
 
   as.inputMgr.registerAction({ "Test Left",
                                [&] {
-                                 camera.position.x -= 1;
-                                 camera.target.x -= 1;
+                                 camera.position.x -= 1.73205080f;
+                                 camera.target.x -= 1.73205080f;
                                } },
                              { KEY_LEFT, {} });
   as.inputMgr.registerAction({ "Test Right",
                                [&] {
-                                 camera.position.x += 1;
-                                 camera.target.x += 1;
+                                 camera.position.x += 1.73205080f;
+                                 camera.target.x += 1.73205080f;
                                } },
                              { KEY_RIGHT, {} });
+  as.inputMgr.registerAction({ "Test UP",
+                               [&] {
+                                   camera.position.z -= 1.5f;
+                                   camera.target.z -= 1.5f;
+                                   camera.position.x -= 1.73205080f/2.f;
+                                   camera.target.x -= 1.73205080f/2.f;
+                               } },
+                             { KEY_UP, {} });
+  as.inputMgr.registerAction({ "Test DOWN",
+                               [&] {
+                                   camera.position.z += 1.5f;
+                                   camera.target.z += 1.5f;
+                                   camera.position.x += 1.73205080f/2.f;
+                                   camera.target.x += 1.73205080f/2.f;
+                               } },
+                             { KEY_DOWN, {} });
 
   // this should be done per model, but for now, we don't even have a proper
   // tile type, so it's fine
@@ -77,6 +85,16 @@ behaviours::MainGame::loop(BehaviourStack& bs)
   PlayerState& ps = *player_state;
   GameState& gs = *ps.gs;
   AppState& as = *gs.app_state;
+
+  if(gs.is_host){
+      //game server implementation
+      int total_stamina = 0;
+      for (const auto &item: gs.units.m_store)
+          total_stamina += item.second.getStamina();
+      if(total_stamina == 0){
+          //todo: ready for next round
+      }
+  }
 
   const auto frame_start = std::chrono::steady_clock::now();
   // for some reason, dragging around is unstable
@@ -159,7 +177,7 @@ behaviours::MainGame::loop(BehaviourStack& bs)
   std::vector<HexCoords> movement_path;
   std::vector<PFHexCoords> closed_path;
   if (ps.selected_unit.has_value()) {
-      const auto [path, closed] = gs.world.make_line(ps.selected_unit.value().first, hovered_coords, 50, [&](HexData &data){
+      const auto [path, closed] = gs.world.make_line(ps.selected_unit.value().first, hovered_coords, gs.units.get_all_on_hex(ps.selected_unit->first).getStamina(), [&](HexData &data){
             return as.resourceStore.m_hex_table.at(data.tileid).movement_cost;
       });
       movement_path = path;
@@ -167,7 +185,8 @@ behaviours::MainGame::loop(BehaviourStack& bs)
   }
 
   if (ps.selected_unit.has_value() &&
-      IsMouseButtonReleased(MOUSE_RIGHT_BUTTON) && movement_path.size() > 1) {
+      IsMouseButtonReleased(MOUSE_RIGHT_BUTTON) && movement_path.size() > 1 &&
+          !gs.units.get_all_on_hex(movement_path.back()).has_any()) {
     auto [location, type] = ps.selected_unit.value();
     switch (type) {
       case UnitType::Millitary:
@@ -181,6 +200,10 @@ behaviours::MainGame::loop(BehaviourStack& bs)
         break;
       default:;
     }
+    std::for_each(movement_path.begin() + 1, movement_path.end(),[&](HexCoords &coords){
+        gs.units.get_all_on_hex(movement_path.back()).addStamina(-1 * as.resourceStore.m_hex_table.at(gs.world.at_ref_normalized(coords).tileid).movement_cost);
+    });
+
     ps.selected_unit.value().first = hovered_coords;
     gs.UpdateVission(ps.fraction);
   }
@@ -215,7 +238,6 @@ behaviours::MainGame::loop(BehaviourStack& bs)
     ClearBackground(DARKBLUE);
     BeginMode3D(camera);
     {
-      DrawGrid(10, 1.0f);
       for (const auto coords : to_render) {
         auto hx = gs.world.at(coords);
         auto tint = WHITE;
@@ -269,6 +291,10 @@ behaviours::MainGame::loop(BehaviourStack& bs)
              10,
              20,
              BLACK);
+      auto& hoveredUnits = gs.units.get_all_on_hex(hovered_coords);
+      if(hoveredUnits.has_any()) {
+          DrawText(TextFormat("Stamina: %i", hoveredUnits.getStamina()), GetMouseX(), GetMouseY(), 10, BLACK);
+      }
     if (as.debug) {
       DrawFPS(10, 10);
       DrawText(TextFormat("Hovered: %i %i", hovered_coords.q, hovered_coords.r),
